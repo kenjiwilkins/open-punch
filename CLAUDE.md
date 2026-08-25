@@ -39,6 +39,12 @@ infra/, sst.config.ts             # SST v3
 7. **単一店舗確定**。店舗（Store）概念は入れない。
 8. **補正は元イベントを書き換えず PunchAudit を append**。対象更新と監査記録は TransactWriteItems で原子的に。
 9. **テストは依存を安全に上げ続けるための命綱**。ドメインロジック・認可分岐を Unit テストで、主要操作を UI テストで守る（E2E はやらない）。[docs/07-testing.md](./docs/07-testing.md) の回帰チェックリストは常に緑に保つ。依存更新は `.claude/commands/` のコマンドで回す。
+10. **シフト管理はやらない**。Shift エンティティを作らない。勤怠に集中。
+11. **社員ログインは Cognito Hosted UI**。認証 UI を自前実装しない。
+12. **連打はサーバ側で無視**。同一 worker・同一 `type` の直近 N 秒（既定60秒）は重複として弾く。
+13. **業務日は暦日固定（MVP）だが `computeBusinessDate(occurredAt, cutoffHour=0)` の純関数に閉じ込める**。将来の締め時刻設定に備える。`businessDate` は打刻時に確定保存。
+14. **ID は ULID**。社員 role は MVP 全員 `ADMIN`（権限分岐なし）。
+15. **GraphQL は Function URL で公開（MVP）**。beta/production は同一アカウントの SST ステージで分離。
 
 ## コマンド（雛形作成後に整備）
 

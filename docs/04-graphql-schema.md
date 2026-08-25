@@ -1,4 +1,4 @@
-# 04. GraphQL スキーマ案 🟡 要レビュー
+# 04. GraphQL スキーマ案
 
 Pothos（コードファースト）で組む前提の**スキーマ草案**。ここでは分かりやすさのため SDL で書く。実装は Pothos の builder で型安全に定義する。
 
@@ -94,10 +94,11 @@ input ManualPunchInput { workerId: ID!, type: PunchType!, occurredAt: String!, n
 
 - **`punch` は時刻を引数に取らない**。キオスク端末の時計を信用せず、Lambda のサーバー時刻を `occurredAt` にする。手動での時刻指定は社員専用の `createManualPunch` / `correctPunch` に隔離する。
 - **キオスクの公開範囲を最小化**。apiKey で叩けるのは `workers` / `workerStatus` / `punch` の3つだけ。個人の過去履歴一括取得や社員データは cognito 必須。
-- **エラー方針**: 認可違反は `FORBIDDEN`、対象なしは `NOT_FOUND` の拡張エラーコードを返す。🟡 エラーコード体系は実装時に確定。
+- **エラー方針**: `extensions.code` で最低限3系統を返す — `FORBIDDEN`（認可違反）/ `NOT_FOUND`（対象なし）/ `BAD_USER_INPUT`（zod 検証失敗）。細かいコードは実装時に足す。
+- **`punch` の連打対策（確定）**: サーバ側で同一 worker・同一 `type` の直近 N 秒（既定60秒）を重複とみなし無視し、既存イベントを返す（[03-data-model.md](./03-data-model.md) 参照）。クライアントは追加で `idempotencyKey`（任意）を送れるようにし、あれば同一キーの再送を吸収する。
 
-## 🟡 未決事項
+## 確定 / 先送り
 
-1. `punch` の**冪等性**: クライアント生成の `idempotencyKey` を受けて連打を吸収するか（[03](./03-data-model.md) の連打対策と合わせて決める）。
-2. **購読（Subscription）**: 管理画面で打刻をリアルタイム表示したいか。要るなら Yoga + SSE か AppSync 再検討。MVP は不要（ポーリング）で提案。
-3. **ページネーション**: `punchesByDate` は1日分なので当面不要。期間検索が伸びたら cursor 導入。
+- ✅ **連打対策**はサーバ側の時間窓デデュープで確定（上記）。`idempotencyKey` は任意の補助。
+- **購読（Subscription）**: MVP は**不要**。管理画面は必要ならポーリングで更新。リアルタイム要件が出たら Yoga + SSE を検討。
+- **ページネーション**: `punchesByDate` は1日分なので**当面不要**。期間検索が伸びたら cursor ベースを導入。

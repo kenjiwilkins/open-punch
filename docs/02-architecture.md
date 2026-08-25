@@ -45,7 +45,7 @@ open-punch/
 ```
 
 - **スキーマと型を `packages/graphql` / `packages/core` に集約**し、kiosk・admin の両方から型安全に使う。これがモノレポを選んだ最大の理由。
-- フロントの GraphQL クライアントは [graphql-request](https://github.com/graffle-js/graffle) + [GraphQL Code Generator](https://the-guild.dev/graphql/codegen) で型生成する想定。🟡 urql / Apollo にしたい理由があれば相談。
+- フロントの GraphQL クライアントは [graphql-request](https://github.com/graffle-js/graffle) + [GraphQL Code Generator](https://the-guild.dev/graphql/codegen) で型生成する（確定）。キャッシュ層が要る要件が出たら urql を再検討。
 
 ## 認証・認可
 
@@ -59,9 +59,11 @@ GraphQL は **1つのエンドポイント**で、2つの認証モードを reso
 - 🟡 **将来のデバイス制限**: 端末登録トークン（初回に管理画面で端末を登録して発行）や、CloudFront + WAF による IP 許可リストを段階的に追加できる設計にしておく。MVP では API キーのみ。
 
 ### 社員操作 — Cognito JWT
-- admin は Cognito ログイン後、`Authorization: Bearer <IdToken>` を付与する。
+- **ログイン UI は Cognito Hosted UI を使う（確定）**。パスワード入力・MFA・パスワードリセット等のセンシティブな認証 UI を AWS 側に寄せ、自前で保守しない（過去の脆弱性対応の反省に沿う）。admin はログイン後 Hosted UI からリダイレクトで戻り、トークンを受け取る。
+- admin は取得した `IdToken` を GraphQL リクエストの `Authorization: Bearer <IdToken>` に付与する。
 - Lambda 側で [`aws-jwt-verify`](https://github.com/awslabs/aws-jwt-verify) を使って JWT を検証し、`authMode = 'cognito'`、`employee = { sub, email, ... }` を context にセット。
 - 社員向けオペレーション（`me`, `punchesByDate`, `createWorker`, `correctPunch` など）は `authMode === 'cognito'` を要求する。
+- 🟡 Hosted UI の見た目カスタマイズ（ロゴ・配色）はやるか。MVP はデフォルト外観で可。
 
 ### 認可の実装方針
 - 各 resolver の先頭で context の `authMode` をチェックするヘルパ（例 `requireEmployee(ctx)` / `requireApiKey(ctx)`）を通す。
@@ -78,7 +80,7 @@ GraphQL は **1つのエンドポイント**で、2つの認証モードを reso
 | admin アプリ | `sst.aws.Nextjs` | 社員用フロント |
 | API キー等の秘密 | `sst.Secret` | キオスク API キー |
 
-> ※ GraphQL を Function URL で公開するか、`sst.aws.ApiGatewayV2` の背後に置くかは 🟡 未決。API Gateway ならレート制限・WAF 連携がしやすい。MVP は Function URL で軽く始め、必要になったら Gateway 化する方針を提案。
+> ※ **MVP は GraphQL を Function URL で公開する（確定）**。レート制限・WAF 連携が要るフェーズになったら `sst.aws.ApiGatewayV2` の背後に移す。キオスクが公開エンドポイントである点（[03/04](./04-graphql-schema.md)）を踏まえ、Gateway 化はデバイス制限とセットで将来検討する。
 
 ## 環境（ステージ）
 
@@ -93,5 +95,5 @@ GraphQL は **1つのエンドポイント**で、2つの認証モードを reso
 - デプロイは `sst deploy --stage beta` / `sst deploy --stage production` で切り替える。
 - **beta と production は別 AWS リソース**（別テーブル・別 User Pool・別 API キー）。社員アカウント（Cognito）も環境ごとに分かれる点に注意。
 - キオスク API キー等の秘密（`sst.Secret`）も**ステージごとに設定**する。beta の鍵で production は叩けない。
-- 🟡 beta / production を同一 AWS アカウント内のステージ分離で済ませるか、AWS アカウント自体を分けるかは要検討（データ隔離を強くするならアカウント分離）。MVP は同一アカウントのステージ分離で提案。
+- **MVP は同一 AWS アカウント内のステージ分離で行く（確定）**。データ隔離をより強くしたくなったら（本番データの取り扱いが厳格化したら）AWS アカウント自体の分離へ移行する。
 - 🟡 本番ドメイン・カスタムドメイン（beta 用サブドメイン含む）の要否は後で。

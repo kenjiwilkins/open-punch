@@ -75,7 +75,8 @@ pnpm -r test --coverage
 - 毎 PR で実行。失敗・カバレッジ低下でマージ不可。
 - `/update-library` 実行後は必ずこのスイートを通してから確定する（[.claude/commands/](../.claude/commands)）。
 
-## 🟡 未決事項
+## 運用方針（確定）
 
-- CI の実行基盤（GitHub Actions を想定でよいか）。
-- カバレッジのしきい値を CI で強制するか（`vitest --coverage.thresholds`）。最初は警告のみ、慣れたら強制に上げる案。
+- **CI 基盤は GitHub Actions**。PR ごとに typecheck + unit + UI + coverage を実行。
+- **カバレッジしきい値は段階導入**: 最初は警告のみ（数値を可視化）、テストが揃ってきたら `vitest --coverage.thresholds` で強制に上げてマージブロックにする。
+- 依存更新（`/update-library`）後は必ずこのスイートを緑にしてから確定する。
