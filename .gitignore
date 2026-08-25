@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js
+.next/
+out/
+
+# production build
+dist/
+build/
+
+# sst
+.sst/
+.open-next/
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+
+# test coverage
+coverage/
+
+# os / editor
+.DS_Store
+.idea/
+*.swp
