@@ -7,13 +7,17 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@open-punch/core": "workspace:*"
+    "@open-punch/core": "workspace:*",
+    "@pothos/core": "catalog:",
+    "graphql": "catalog:"
   },
   "devDependencies": {
     "@open-punch/config": "workspace:*",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
