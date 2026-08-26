@@ -1,0 +1,22 @@
+{
+  "name": "open-punch",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "sst dev",
+    "deploy": "sst deploy",
+    "sst": "sst",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test",
+    "build": "pnpm -r --if-present run build"
+  },
+  "devDependencies": {
+    "sst": "catalog:",
+    "typescript": "catalog:",
+    "@types/node": "catalog:"
+  }
+}

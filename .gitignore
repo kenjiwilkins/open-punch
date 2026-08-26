@@ -13,6 +13,7 @@ build/
 # sst
 .sst/
 .open-next/
+sst-env.d.ts
 
 # env / secrets
 .env
@@ -22,6 +23,9 @@ build/
 # logs
 *.log
 npm-debug.log*
+
+# typescript
+*.tsbuildinfo
 
 # test coverage
 coverage/
