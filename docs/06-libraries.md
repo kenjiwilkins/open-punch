@@ -21,10 +21,10 @@
 
 ## インフラ
 
-### SST v3
-AWS を TypeScript で宣言的に構築するフレームワーク。v3 は Pulumi/Terraform エンジン上で動く（旧 v2 の CDK ベースから刷新）。`sst.aws.Nextjs` / `sst.aws.Dynamo` / `sst.aws.CognitoUserPool` / `sst.aws.Function` といった高レベルコンポーネントで、本プロジェクトの構成をほぼカバーできる。
-- **なぜ**: Next.js のデプロイ・Lambda・DynamoDB・Cognito を1つの `sst.config.ts` で束ね、ステージ分離（dev/prod）も容易。
-- **注意**: v2 と v3 で API が大きく違う。ドキュメント/AI が v2 の書き方を出しがちなので、必ず v3（`sst.aws.*` コンポーネント）で書く。
+### SST（Ion / v4系）
+AWS を TypeScript で宣言的に構築するフレームワーク。**Ion**（現在の `sst@4` 系）は Pulumi/Terraform エンジン上で動く（旧 SST Classic = `sst@2` の CDK ベースから刷新）。`sst.aws.Nextjs` / `sst.aws.Dynamo` / `sst.aws.CognitoUserPool` / `sst.aws.Function` といった高レベルコンポーネントで、本プロジェクトの構成をほぼカバーできる。
+- **なぜ**: Next.js のデプロイ・Lambda・DynamoDB・Cognito を1つの `sst.config.ts` で束ね、ステージ分離（dev/beta/production）も容易。
+- **注意**: SST Classic（v2, CDK）と Ion（v3/v4, `sst.aws.*`）で API が大きく違う。ドキュメント/AI が Classic の書き方を出しがちなので、必ず Ion（`sst.aws.*` コンポーネント）で書く。
 
 ## フロント / UI
 

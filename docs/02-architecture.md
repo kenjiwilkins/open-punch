@@ -38,7 +38,7 @@ open-punch/
 │  ├─ core/             # ドメインロジック + DynamoDB アクセス（シングルテーブル）+ 共有型
 │  ├─ ui/               # shadcn/ui ベースの共有コンポーネント
 │  └─ config/           # tsconfig / eslint / prettier 共有設定
-├─ infra/               # SST v3 コンポーネント定義（分割して置く）
+├─ infra/               # SST（Ion / v4系） コンポーネント定義（分割して置く）
 ├─ sst.config.ts        # SST エントリポイント
 ├─ pnpm-workspace.yaml
 └─ package.json
@@ -69,7 +69,7 @@ GraphQL は **1つのエンドポイント**で、2つの認証モードを reso
 - 各 resolver の先頭で context の `authMode` をチェックするヘルパ（例 `requireEmployee(ctx)` / `requireApiKey(ctx)`）を通す。
 - 認可ルールは [04-graphql-schema.md](./04-graphql-schema.md) のオペレーション表に明記する。
 
-## SST v3 で作るリソース
+## SST（Ion / v4系） で作るリソース
 
 | リソース | SST コンポーネント | 用途 |
 | --- | --- | --- |
