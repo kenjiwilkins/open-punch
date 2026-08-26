@@ -2,13 +2,16 @@
 
 段階的に。各マイルストーンは「動くものが1つ増える」単位で切る。
 
-## M0: 土台（インフラの骨組み）
-- pnpm workspace モノレポの初期化（apps/packages/infra）
-- SST v3 セットアップ、`sst dev` が起動する
-- **ステージ分離を最初から用意**: `dev` / `beta` / `production` を SST のステージで分けられる状態にする（リソースはステージ名で名前空間化）。[docs/02-architecture.md](./02-architecture.md#環境ステージ) 参照
-- DynamoDB テーブル（`OpenPunch` + GSI1/GSI2）を SST で定義
-- Cognito User Pool を SST で定義（社員1名を手動作成できる状態）
-- **完了条件**: `pnpm sst dev` でリソースが上がり、`sst deploy --stage beta` で beta 環境を作れる
+## M0: 土台（インフラの骨組み）✅ 済（スキャフォールド）
+- ✅ pnpm workspace モノレポの初期化（apps/kiosk・admin, packages/core・graphql・ui・config, infra）。バージョンは pnpm catalog に集約
+- ✅ SST（Ion / v4系）セットアップ、`sst.config.ts` を配置（CLI 4.17.1 動作確認）
+- ✅ **ステージ分離**: `app()` で `dev` / `beta` / `production` を切替（production は removal=retain + protect）
+- ✅ DynamoDB テーブル（`OpenPunch` + GSI1/GSI2）を `infra/storage.ts` で定義
+- ✅ Cognito User Pool + client を `infra/auth.ts` で定義、キオスク API キー Secret を `infra/secrets.ts` で定義
+- ✅ `packages/core`: ドメイン型 + `computeBusinessDate`（拠点TZ・DST対応）を実装、vitest で12ケース緑
+- ✅ `pnpm typecheck` / `pnpm test` が緑
+- ⏳ **残り（オーナー作業）**: AWS 認証情報を用意して `pnpm sst dev` / `pnpm sst deploy --stage beta` を実行し、実リソースが上がることを確認
+- **完了条件**: `pnpm sst deploy --stage beta` で beta 環境が立ち上がる
 
 ## M1: GraphQL の背骨
 - `packages/core`: DynamoDB アクセス層（Worker / PunchEvent の Repository）
@@ -41,11 +44,11 @@
 - リアルタイム表示（Subscription）
 - 給与システム連携 / API 提供
 
-> 単一店舗・シフト管理なし・休憩打刻なしは MVP の確定方針。ここは Phase 2 でも広げない前提。
+> シフト管理なし・休憩打刻なしは MVP の確定方針。多拠点（Location）＋拠点単位のタイムゾーンは対応する（日豪運用のため）。admin の横断集計は現時点で不要。
 
 ---
 
 ## 最初のゴール（確定）
 
 - **M2 まで（アルバイトが実機 iPad で打刻できる）を最初の到達点**とする。管理画面（M3 以降）はその後。
-- 次アクション: **M0（pnpm ワークスペース + SST v3 の雛形、`sst dev` 起動 & `--stage beta` デプロイ可能まで）**。
+- 次アクション: **M0（pnpm ワークスペース + SST（Ion / v4系） の雛形、`sst dev` 起動 & `--stage beta` デプロイ可能まで）**。
