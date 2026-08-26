@@ -12,6 +12,9 @@ catalogs:
     '@aws-sdk/lib-dynamodb':
       specifier: ^3.1117.0
       version: 3.1118.0
+    '@pothos/core':
+      specifier: ^4.13.1
+      version: 4.13.1
     '@types/node':
       specifier: ^22.10.0
       version: 22.20.1
@@ -24,6 +27,9 @@ catalogs:
     aws-sdk-client-mock:
       specifier: ^4.1.0
       version: 4.1.0
+    graphql:
+      specifier: ^17.0.2
+      version: 17.0.2
     next:
       specifier: ^16.3.2
       version: 16.3.3
@@ -151,6 +157,12 @@ importers:
       '@open-punch/core':
         specifier: workspace:*
         version: link:../core
+      '@pothos/core':
+        specifier: 'catalog:'
+        version: 4.13.1(graphql@17.0.2)
+      graphql:
+        specifier: 'catalog:'
+        version: 17.0.2
     devDependencies:
       '@open-punch/config':
         specifier: workspace:*
@@ -158,6 +170,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1))
 
   packages/ui:
     devDependencies:
@@ -471,6 +486,11 @@ packages:
 
   '@oxc-project/types@0.146.0':
     resolution: {integrity: sha512-XC0QsnnhVe7sLIWmYmdPw7x5P0h4W8vUU3Nv1ySgWXtvCz8NizoAEpGXA0sOYoJQV2Rl13LgURAHQ5cI5ILCSA==}
+
+  '@pothos/core@4.13.1':
+    resolution: {integrity: sha512-2hkLxmvrT7VnbiWAfYhfF09PjaHeflZ5HrBHYzU6Tn/P9tDviuZS7IS5xO4k/KnK5GkRo3YxDzXyn+HnkEkVNw==}
+    peerDependencies:
+      graphql: ^16.10.0 || ^17.0.0
 
   '@rolldown/binding-android-arm-eabi@1.2.5':
     resolution: {integrity: sha512-DLe/i+l8ynIBY7XEQ191TeZvCoowIGa18R+dIV30GW7DiOtp74i/xX8hs8GUjW5ARV7VZuie3d6AumSmCwbeRA==}
@@ -847,6 +867,10 @@ packages:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
+
+  graphql@17.0.2:
+    resolution: {integrity: sha512-FRWbddMxfkjiB7z+aQDWIR+E34xo9I8c9mtK2RPv8PmMzKRvrdsreHL/Ui/TmwHJfhHChEtsFPyMHKI+xuarQQ==}
+    engines: {node: ^22.0.0 || ^24.0.0 || ^25.0.0 || >=26.0.0}
 
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
@@ -1587,6 +1611,10 @@ snapshots:
 
   '@oxc-project/types@0.146.0': {}
 
+  '@pothos/core@4.13.1(graphql@17.0.2)':
+    dependencies:
+      graphql: 17.0.2
+
   '@rolldown/binding-android-arm-eabi@1.2.5':
     optional: true
 
@@ -1860,6 +1888,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  graphql@17.0.2: {}
 
   has-flag@4.0.0: {}
 
