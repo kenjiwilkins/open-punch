@@ -10,10 +10,16 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/lib-dynamodb": "catalog:",
+    "ulid": "catalog:"
+  },
   "devDependencies": {
     "@open-punch/config": "workspace:*",
     "typescript": "catalog:",
     "@types/node": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "aws-sdk-client-mock": "catalog:"
   }
 }
