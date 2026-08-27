@@ -11,9 +11,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "catalog:",
+    "@aws-sdk/lib-dynamodb": "catalog:",
     "@open-punch/core": "workspace:*",
     "@pothos/core": "catalog:",
-    "graphql": "catalog:"
+    "aws-jwt-verify": "catalog:",
+    "graphql": "catalog:",
+    "graphql-yoga": "catalog:"
   },
   "devDependencies": {
     "@open-punch/config": "workspace:*",

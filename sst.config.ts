@@ -28,6 +28,7 @@ export default $config({
       table: infra.table.name,
       userPool: infra.userPool.id,
       userPoolClient: infra.userPoolClient.id,
+      graphqlUrl: infra.graphql.url,
     };
   },
 });
