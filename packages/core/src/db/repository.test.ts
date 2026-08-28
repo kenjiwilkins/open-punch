@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { PunchEvent, Worker } from "../domain/types";
+import type { Location, PunchEvent, Worker } from "../domain/types";
 import { PunchType } from "../domain/types";
 import { createRepositories } from "./repository";
 
@@ -39,7 +39,44 @@ const punch: PunchEvent = {
   createdAt: "2026-08-25T00:01:00Z",
 };
 
+const location: Location = {
+  locationId: "L1",
+  name: "渋谷店",
+  timeZone: "Asia/Tokyo",
+  businessDayCutoffHour: 0,
+  active: true,
+  createdAt: "2026-08-25T00:00:00Z",
+  updatedAt: "2026-08-25T00:00:00Z",
+};
+
 beforeEach(() => ddbMock.reset());
+
+describe("locations", () => {
+  it("put は LOCATION#/PROFILE キーで書かれる", async () => {
+    ddbMock.on(PutCommand).resolves({});
+    await repos.locations.put(location);
+    const item = ddbMock.commandCalls(PutCommand)[0]!.args[0].input.Item!;
+    expect(item.PK).toBe("LOCATION#L1");
+    expect(item.SK).toBe("PROFILE");
+    expect(item.timeZone).toBe("Asia/Tokyo");
+    expect(item.businessDayCutoffHour).toBe(0);
+  });
+
+  it("get はドメイン型に整形して返す（キー属性を含まない）", async () => {
+    ddbMock.on(GetCommand).resolves({
+      Item: { ...location, PK: "LOCATION#L1", SK: "PROFILE", entityType: "LOCATION" },
+    });
+    const got = await repos.locations.get("L1");
+    expect(got?.locationId).toBe("L1");
+    expect(got?.timeZone).toBe("Asia/Tokyo");
+    expect((got as unknown as Record<string, unknown>).PK).toBeUndefined();
+  });
+
+  it("get は見つからなければ undefined", async () => {
+    ddbMock.on(GetCommand).resolves({});
+    expect(await repos.locations.get("nope")).toBeUndefined();
+  });
+});
 
 describe("workers", () => {
   it("active な Worker は GSI1 キー付きで書かれる（スパース）", async () => {

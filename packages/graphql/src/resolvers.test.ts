@@ -107,6 +107,32 @@ describe("認可（キオスク公開オペレーション）", () => {
     const r = await post(yoga, `{ workers(locationId:"L1"){ id displayName } }`, true);
     expect(r.data.workers).toEqual([{ id: "W1", displayName: "山田" }]);
   });
+
+  it("cognito モードでも kiosk 操作(workers)は FORBIDDEN（apiKey 専用）", async () => {
+    const { yoga } = makeYoga();
+    const res = await yoga.fetch("http://localhost/graphql", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer good.token" },
+      body: JSON.stringify({ query: `{ workers(locationId:"L1"){ id } }` }),
+    });
+    const r = await res.json();
+    expect(r.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+  });
+});
+
+describe("NOT_FOUND", () => {
+  it("存在しない worker への punch は NOT_FOUND（書き込まない）", async () => {
+    const { yoga, created } = makeYoga({ workers: [] });
+    const r = await post(yoga, `mutation { punch(workerId:"ZZ", type:CLOCK_IN){ id } }`, true);
+    expect(r.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+    expect(created).toHaveLength(0);
+  });
+
+  it("存在しない worker の workerStatus は NOT_FOUND", async () => {
+    const { yoga } = makeYoga({ workers: [] });
+    const r = await post(yoga, `{ workerStatus(workerId:"ZZ"){ status } }`, true);
+    expect(r.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+  });
 });
 
 describe("punch（サーバー時刻・businessDate）", () => {
