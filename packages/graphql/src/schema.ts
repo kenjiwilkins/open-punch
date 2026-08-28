@@ -1,12 +1,5 @@
 import { builder } from "./builder";
-import "./types"; // 型・enum を builder に登録する（副作用）
-
-// オペレーション（workers / workerStatus / punch など）は #9 で追加する。
-// ここでは疎通確認用の health のみ。Query 型が無いとスキーマがビルドできないため。
-builder.queryType({
-  fields: (t) => ({
-    health: t.string({ resolve: () => "ok" }),
-  }),
-});
+import "./types"; // 型・enum を builder に登録（副作用）
+import "./resolvers"; // Query/Mutation の operations を登録（副作用）
 
 export const schema = builder.toSchema();
