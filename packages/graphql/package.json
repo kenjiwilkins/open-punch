@@ -17,7 +17,8 @@
     "@pothos/core": "catalog:",
     "aws-jwt-verify": "catalog:",
     "graphql": "catalog:",
-    "graphql-yoga": "catalog:"
+    "graphql-yoga": "catalog:",
+    "ulid": "catalog:"
   },
   "devDependencies": {
     "@open-punch/config": "workspace:*",

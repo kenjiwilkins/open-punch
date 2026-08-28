@@ -1,5 +1,5 @@
 import SchemaBuilder from "@pothos/core";
-import { GraphQLError } from "graphql";
+import { createGraphQLError } from "graphql-yoga";
 import type { Repositories } from "@open-punch/core";
 
 /** Cognito で認証された社員（JWT から取り出す）。 */
@@ -26,7 +26,7 @@ export const builder = new SchemaBuilder<{ Context: GraphQLContext }>({});
 /** 社員（Cognito）を要求する。満たさなければ FORBIDDEN。 */
 export function requireEmployee(ctx: GraphQLContext): AuthEmployee {
   if (ctx.authMode !== "cognito" || !ctx.employee) {
-    throw new GraphQLError("この操作には社員（Cognito）認証が必要です", {
+    throw createGraphQLError("この操作には社員（Cognito）認証が必要です", {
       extensions: { code: "FORBIDDEN" },
     });
   }
@@ -36,7 +36,7 @@ export function requireEmployee(ctx: GraphQLContext): AuthEmployee {
 /** キオスク（API キー）を要求する。公開オペレーション（workers/workerStatus/punch）専用。 */
 export function requireKiosk(ctx: GraphQLContext): void {
   if (ctx.authMode !== "apiKey") {
-    throw new GraphQLError("この操作にはキオスク API キーが必要です", {
+    throw createGraphQLError("この操作にはキオスク API キーが必要です", {
       extensions: { code: "FORBIDDEN" },
     });
   }
