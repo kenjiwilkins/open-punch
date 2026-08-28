@@ -43,6 +43,21 @@ DynamoDB は **aws-sdk-client-mock** でモックし、実 AWS なしで回す�
 5. 状態算出: 出勤→退勤→再出勤（中抜け）で正しく `WORKING` に戻る。
 6. 入力検証（zod）: 不正な `type` や欠損フィールドが拒否される。
 
+## M1 時点のカバレッジ状況
+
+回帰チェックリストと現在のテストの対応（M1 完了時点）:
+
+| # | チェック項目 | 状態 | テスト |
+| --- | --- | --- | --- |
+| 1 | apiKey は3操作だけ・cognito 専用は拒否 | ✅ | `graphql/src/builder.test.ts`（`requireKiosk`/`requireEmployee` 全分岐）, `resolvers.test.ts`（cognito で kiosk 操作が FORBIDDEN） |
+| 2 | `punch` はサーバー時刻を採用 | ✅ | `graphql/src/resolvers.test.ts`（occurredAt=サーバー時刻・引数に時刻を取らない） |
+| 3 | 補正で PunchAudit を原子的に append | ⏳ M2/M3 | 補正機能未実装 |
+| 4 | inactive はキオスク一覧に出ない（GSI1 スパース） | ✅ | `core/src/db/repository.test.ts` |
+| 5 | 中抜け（出勤→退勤→再出勤）で `WORKING` | ✅ | `core/src/domain/status.test.ts` |
+| 6 | 入力検証（zod）で不正 `type`/欠損を拒否 | ⏳ | GraphQL enum で `type` は担保。zod での明示検証は今後 |
+
+補足で M1 追加分: `punch` の連打デデュープ・`businessDate` を拠点TZで確定（`resolvers.test.ts`）、`locations`/`workers`/`punches` の Repository キー生成・クエリ（`repository.test.ts`）。
+
 ## カバレッジ目標
 
 | 対象 | 目標 |
@@ -64,15 +79,17 @@ DynamoDB は **aws-sdk-client-mock** でモックし、実 AWS なしで回す�
 | GraphQL/HTTP モック | msw |
 | カバレッジ | @vitest/coverage-v8 |
 
-## CI での実行（M0 で整備）
+## CI での実行
+
+GitHub Actions で PR（→ main）と main への push ごとに typecheck + test を実行する（[.github/workflows/ci.yml](../.github/workflows/ci.yml)）。
 
 ```bash
-pnpm -r typecheck     # 型
-pnpm -r test          # unit + UI
+pnpm typecheck        # 型（pnpm -r --if-present run typecheck）
+pnpm test             # unit + UI（pnpm -r --if-present run test）
 pnpm -r test --coverage
 ```
 
-- 毎 PR で実行。失敗・カバレッジ低下でマージ不可。
+- 毎 PR で実行。失敗でマージ不可（カバレッジしきい値は段階導入）。
 - `/update-library` 実行後は必ずこのスイートを通してから確定する（[.claude/commands/](../.claude/commands)）。
 
 ## 運用方針（確定）
