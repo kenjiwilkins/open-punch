@@ -25,9 +25,16 @@ catalog:
   lucide-react: ^0.545.0
 
   # graphql
-  graphql: ^17.0.2
+  # graphql-codegen / graphql-request など周辺ツールがまだ 17 未対応のため 16 系に固定。
+  graphql: ^16.11.0
   "@pothos/core": ^4.13.1
   graphql-yoga: ^5.22.0
+  graphql-request: ^7.1.0
+  "@graphql-typed-document-node/core": ^3.2.0
+  "@graphql-codegen/cli": ^5.0.0
+  "@graphql-codegen/client-preset": ^4.5.0
+  tsx: ^4.19.0
+  server-only: ^0.0.1
 
   # data / auth / validation
   "@aws-sdk/client-dynamodb": ^3.1117.0

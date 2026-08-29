@@ -8,7 +8,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "emit-schema": "tsx scripts/print-schema.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "catalog:",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@open-punch/config": "workspace:*",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
