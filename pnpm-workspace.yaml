@@ -46,3 +46,7 @@ catalog:
   # test
   vitest: ^4.1.11
   aws-sdk-client-mock: ^4.1.0
+  "@testing-library/react": ^16.1.0
+  "@testing-library/jest-dom": ^6.6.3
+  happy-dom: ^19.0.0
+  "@vitejs/plugin-react": ^5.0.0
