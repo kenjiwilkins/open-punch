@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   test:
-    name: typecheck + test
+    name: typecheck + test + build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,3 +33,12 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # フロントにロジックが入るため Next build も回す。
+      # 実行時に読む env はビルドを通すためのダミー（force-dynamic なので実際には未使用）。
+      - name: Build
+        run: pnpm build
+        env:
+          GRAPHQL_URL: https://example.invalid/graphql
+          KIOSK_API_KEY: dummy-ci-api-key
+          KIOSK_LOCATION_ID: L_CI
