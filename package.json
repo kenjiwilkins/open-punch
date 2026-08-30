@@ -12,7 +12,11 @@
     "sst": "sst",
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
-    "build": "pnpm -r --if-present run build"
+    "build": "pnpm -r --if-present run build",
+    "codegen": "pnpm --filter @open-punch/graphql emit-schema && pnpm --filter kiosk codegen"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
   },
   "devDependencies": {
     "sst": "catalog:",

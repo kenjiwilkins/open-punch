@@ -1,0 +1,69 @@
+type Employee {
+  email: String
+  name: String
+  role: EmployeeRole
+  sub: ID
+}
+
+enum EmployeeRole {
+  ADMIN
+}
+
+type Location {
+  active: Boolean
+  businessDayCutoffHour: Int
+  country: String
+  id: ID
+  name: String
+  timeZone: String
+}
+
+type Mutation {
+  punch(type: PunchType!, workerId: String!): PunchEvent
+}
+
+type PunchEvent {
+  businessDate: String
+  corrected: Boolean
+  id: ID
+  locationId: String
+  note: String
+  occurredAt: String
+  timeZone: String
+  type: PunchType
+  workerId: String
+}
+
+enum PunchType {
+  CLOCK_IN
+  CLOCK_OUT
+}
+
+type Query {
+  health: String
+  workerStatus(workerId: String!): WorkerDayStatus
+  workers(locationId: String!): [Worker!]
+}
+
+type Worker {
+  active: Boolean
+  createdAt: String
+  displayName: String
+  id: ID
+  locationId: String
+  name: String
+  nameKana: String
+}
+
+type WorkerDayStatus {
+  lastPunchAt: String
+  punchesToday: [PunchEvent!]
+  status: WorkerStatus
+  workerId: ID
+}
+
+enum WorkerStatus {
+  CLOCKED_OUT
+  NOT_CLOCKED_IN
+  WORKING
+}
