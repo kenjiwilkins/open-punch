@@ -22,7 +22,7 @@ export function WorkerGrid({ workers }: { workers: WorkerGridItem[] }) {
       {workers.map((worker) => (
         <li key={worker.id}>
           <Link
-            href={`/punch/${worker.id}`}
+            href={{ pathname: `/punch/${worker.id}`, query: { name: worker.displayName } }}
             aria-label={`${worker.displayName} の打刻へ`}
             className="flex h-28 flex-col items-center justify-center gap-1 rounded-xl border bg-background text-center shadow-sm transition-colors outline-none hover:bg-accent active:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >

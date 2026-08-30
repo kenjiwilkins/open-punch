@@ -13,15 +13,18 @@ describe("WorkerGrid", () => {
   it("displayName / nameKana を表示し /punch/:id へリンクする", () => {
     render(<WorkerGrid workers={workers} />);
     const yamada = screen.getByRole("link", { name: "山田 の打刻へ" });
-    expect(yamada).toHaveAttribute("href", "/punch/W1");
+    // 打刻ページへ workerId で遷移し、表示名を query で渡す
+    expect(yamada.getAttribute("href")).toMatch(/^\/punch\/W1\?name=/);
     expect(yamada).toHaveTextContent("山田");
     expect(yamada).toHaveTextContent("やまだ");
   });
 
   it("渡された順序（かな順）を保つ", () => {
     render(<WorkerGrid workers={workers} />);
-    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["/punch/W1", "/punch/W2"]);
+    const paths = screen
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("href")?.split("?")[0]);
+    expect(paths).toEqual(["/punch/W1", "/punch/W2"]);
   });
 
   it("空なら未登録メッセージを出し、リンクは無い", () => {
