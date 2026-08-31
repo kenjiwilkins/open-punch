@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   test:
-    name: typecheck + test + build
+    name: typecheck + test + build + storybook
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,3 +42,7 @@ jobs:
           GRAPHQL_URL: https://example.invalid/graphql
           KIOSK_API_KEY: dummy-ci-api-key
           KIOSK_LOCATION_ID: L_CI
+
+      # 管理されない Storybook が壊れて放置されるのを防ぐため、CI でビルドを検証する。
+      - name: Build Storybook
+        run: pnpm --filter kiosk build-storybook
