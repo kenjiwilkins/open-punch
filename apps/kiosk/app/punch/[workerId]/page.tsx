@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { PunchPanel } from "../../../src/components/punch-panel";
+import { PunchView } from "../../../src/components/punch-view";
 import { WorkerStatus } from "../../../src/gql/graphql";
 import { submitPunch } from "../../../src/lib/actions";
 import { fetchWorkerStatus } from "../../../src/lib/kiosk-client";
@@ -27,24 +26,12 @@ export default async function PunchPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-8 p-6">
-      {error ? (
-        <>
-          <p className="rounded-md border border-destructive/50 p-4 text-destructive" role="alert">
-            状態を取得できませんでした: {error}
-          </p>
-          <Link href="/" className="text-primary underline underline-offset-4">
-            ← 一覧へ戻る
-          </Link>
-        </>
-      ) : (
-        <PunchPanel
-          workerId={workerId}
-          displayName={displayName}
-          initialStatus={status}
-          onPunch={submitPunch}
-        />
-      )}
-    </main>
+    <PunchView
+      workerId={workerId}
+      displayName={displayName}
+      status={status}
+      error={error}
+      onPunch={submitPunch}
+    />
   );
 }
