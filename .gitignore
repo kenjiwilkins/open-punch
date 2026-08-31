@@ -30,6 +30,9 @@ npm-debug.log*
 # test coverage
 coverage/
 
+# storybook
+storybook-static/
+
 # os / editor
 .DS_Store
 .idea/
