@@ -17,7 +17,15 @@ type Item = Record<string, unknown>;
 // --- marshalling -----------------------------------------------------------
 
 function toLocationItem(loc: Location): Item {
-  return { PK: PK.location(loc.locationId), SK: SK.profile, entityType: "LOCATION", ...loc };
+  return {
+    PK: PK.location(loc.locationId),
+    SK: SK.profile,
+    entityType: "LOCATION",
+    // GSI1 の固定パーティションで全 Location を名前順に一覧できる。
+    GSI1PK: GSI1.locationsPk,
+    GSI1SK: GSI1.locationSk(loc.name, loc.locationId),
+    ...loc,
+  };
 }
 
 function fromLocationItem(item: Item): Location {
@@ -103,6 +111,19 @@ function makeLocationRepo({ doc, tableName }: RepoContext) {
     async put(loc: Location): Promise<Location> {
       await doc.send(new PutCommand({ TableName: tableName, Item: toLocationItem(loc) }));
       return loc;
+    },
+    /** 全 Location を名前順に返す（GSI1 の固定パーティション "LOCATIONS"）。 */
+    async list(): Promise<Location[]> {
+      const res = await doc.send(
+        new QueryCommand({
+          TableName: tableName,
+          IndexName: "GSI1",
+          KeyConditionExpression: "GSI1PK = :pk",
+          ExpressionAttributeValues: { ":pk": GSI1.locationsPk },
+          ScanIndexForward: true,
+        }),
+      );
+      return (res.Items ?? []).map(fromLocationItem);
     },
   };
 }

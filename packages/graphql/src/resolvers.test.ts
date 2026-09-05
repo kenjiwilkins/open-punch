@@ -26,9 +26,13 @@ const worker: Worker = {
   updatedAt: ISO,
 };
 
-function makeRepos(opts: { recent?: PunchEvent[]; workers?: Worker[] } = {}) {
+function makeRepos(
+  opts: { recent?: PunchEvent[]; workers?: Worker[]; locations?: Location[]; byDate?: PunchEvent[] } = {},
+) {
   const created: PunchEvent[] = [];
+  const byDateCalls: { locationId: string; businessDate: string }[] = [];
   const workers = opts.workers ?? [worker];
+  const locations = opts.locations ?? [location];
   const repos = {
     workers: {
       get: async (id: string) => workers.find((w) => w.workerId === id),
@@ -36,7 +40,8 @@ function makeRepos(opts: { recent?: PunchEvent[]; workers?: Worker[] } = {}) {
         workers.filter((w) => w.active && w.locationId === locId),
     },
     locations: {
-      get: async () => location,
+      get: async (id: string) => locations.find((l) => l.locationId === id),
+      list: async () => locations,
     },
     punches: {
       recentByWorker: async (_id: string, limit = 1) => (opts.recent ?? []).slice(0, limit),
@@ -44,20 +49,24 @@ function makeRepos(opts: { recent?: PunchEvent[]; workers?: Worker[] } = {}) {
         created.push(p);
         return p;
       },
+      listByLocationDate: async (locationId: string, businessDate: string) => {
+        byDateCalls.push({ locationId, businessDate });
+        return opts.byDate ?? [];
+      },
     },
   } as unknown as Repositories;
-  return { repos, created };
+  return { repos, created, byDateCalls };
 }
 
 function makeYoga(opts: Parameters<typeof makeRepos>[0] = {}, now: Date = NOW) {
-  const { repos, created } = makeRepos(opts);
+  const { repos, created, byDateCalls } = makeRepos(opts);
   const yoga = createYogaHandler({
     repos,
     expectedApiKey: "k",
     verifyJwt: async () => ({ sub: "s", email: "e@example.com" }),
     now: () => now,
   });
-  return { yoga, created };
+  return { yoga, created, byDateCalls };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,6 +76,16 @@ async function post(yoga: ReturnType<typeof makeYoga>["yoga"], query: string, ap
   const res = await yoga.fetch("http://localhost/graphql", {
     method: "POST",
     headers,
+    body: JSON.stringify({ query }),
+  });
+  return res.json();
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function postCognito(yoga: ReturnType<typeof makeYoga>["yoga"], query: string): Promise<any> {
+  const res = await yoga.fetch("http://localhost/graphql", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer good.token" },
     body: JSON.stringify({ query }),
   });
   return res.json();
@@ -199,5 +218,44 @@ describe("workerStatus", () => {
     });
     const r = await post(yoga, `{ workerStatus(workerId:"W1"){ status } }`, true);
     expect(r.data.workerStatus.status).toBe("NOT_CLOCKED_IN");
+  });
+});
+
+describe("admin operations（cognito 必須）", () => {
+  it("locations は apiKey では FORBIDDEN", async () => {
+    const { yoga } = makeYoga();
+    const r = await post(yoga, `{ locations { id name } }`, true);
+    expect(r.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+  });
+
+  it("locations は cognito で拠点一覧を返す", async () => {
+    const { yoga } = makeYoga();
+    const r = await postCognito(yoga, `{ locations { id name timeZone } }`);
+    expect(r.data.locations).toEqual([{ id: "L1", name: "渋谷店", timeZone: "Asia/Tokyo" }]);
+  });
+
+  it("punchesByDate は未認証(none)では FORBIDDEN", async () => {
+    const { yoga } = makeYoga();
+    const r = await post(yoga, `{ punchesByDate(locationId:"L1"){ id } }`);
+    expect(r.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+  });
+
+  it("punchesByDate は businessDate 省略時に拠点TZの当日で引く", async () => {
+    const p = punch({ id: "P1", type: "CLOCK_IN", businessDate: "2026-08-25" });
+    const { yoga, byDateCalls } = makeYoga({ byDate: [p] });
+    const r = await postCognito(
+      yoga,
+      `{ punchesByDate(locationId:"L1"){ id type occurredAt worker { displayName } } }`,
+    );
+    expect(byDateCalls).toEqual([{ locationId: "L1", businessDate: "2026-08-25" }]);
+    expect(r.data.punchesByDate).toEqual([
+      { id: "P1", type: "CLOCK_IN", occurredAt: p.occurredAt, worker: { displayName: "山田" } },
+    ]);
+  });
+
+  it("punchesByDate は businessDate 明示ならそれで引く", async () => {
+    const { yoga, byDateCalls } = makeYoga({ byDate: [] });
+    await postCognito(yoga, `{ punchesByDate(locationId:"L1", businessDate:"2026-08-20"){ id } }`);
+    expect(byDateCalls).toEqual([{ locationId: "L1", businessDate: "2026-08-20" }]);
   });
 });

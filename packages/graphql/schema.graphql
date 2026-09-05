@@ -31,6 +31,7 @@ type PunchEvent {
   occurredAt: String
   timeZone: String
   type: PunchType
+  worker: Worker
   workerId: String
 }
 
@@ -41,6 +42,8 @@ enum PunchType {
 
 type Query {
   health: String
+  locations: [Location!]
+  punchesByDate(businessDate: String, locationId: String!): [PunchEvent!]
   workerStatus(workerId: String!): WorkerDayStatus
   workers(locationId: String!): [Worker!]
 }
