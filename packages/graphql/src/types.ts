@@ -51,6 +51,12 @@ export const PunchEventRef = builder.objectRef<PunchEvent>("PunchEvent").impleme
     businessDate: t.exposeString("businessDate"),
     corrected: t.exposeBoolean("corrected"),
     note: t.exposeString("note", { nullable: true }),
+    // 一覧でワーカー名を出すための関連。admin の当日一覧で使う。
+    worker: t.field({
+      type: WorkerRef,
+      nullable: true,
+      resolve: (punch, _args, ctx) => ctx.repos.workers.get(punch.workerId),
+    }),
   }),
 });
 

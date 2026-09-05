@@ -1,8 +1,14 @@
 import { computeBusinessDate, computeWorkerStatus, type PunchEvent } from "@open-punch/core";
 import { createGraphQLError } from "graphql-yoga";
 import { ulid } from "ulid";
-import { builder, requireKiosk } from "./builder";
-import { PunchEventRef, PunchTypeEnum, WorkerDayStatusRef, WorkerRef } from "./types";
+import { builder, requireEmployee, requireKiosk } from "./builder";
+import {
+  LocationRef,
+  PunchEventRef,
+  PunchTypeEnum,
+  WorkerDayStatusRef,
+  WorkerRef,
+} from "./types";
 
 // 連打デデュープの時間窓（既定60秒。docs/03-data-model.md）。
 const DEDUP_WINDOW_MS = 60_000;
@@ -54,6 +60,39 @@ builder.queryType({
           lastPunchAt: punchesToday.at(-1)?.occurredAt,
           punchesToday,
         };
+      },
+    }),
+
+    // --- 社員（admin）向け。cognito 認証必須 ---
+
+    /** 全拠点（名前順）。拠点選択に使う。 */
+    locations: t.field({
+      type: [LocationRef],
+      resolve: async (_parent, _args, ctx) => {
+        requireEmployee(ctx);
+        return ctx.repos.locations.list();
+      },
+    }),
+
+    /**
+     * 拠点の指定営業日の打刻一覧。businessDate 省略時は拠点TZの「当日」を
+     * サーバーで算出する（businessDate ロジックは core に閉じ込める）。
+     */
+    punchesByDate: t.field({
+      type: [PunchEventRef],
+      args: {
+        locationId: t.arg.string({ required: true }),
+        businessDate: t.arg.string({ required: false }),
+      },
+      resolve: async (_parent, args, ctx) => {
+        requireEmployee(ctx);
+        let date = args.businessDate ?? null;
+        if (!date) {
+          const location = await ctx.repos.locations.get(args.locationId);
+          if (!location) throw notFound("location");
+          date = computeBusinessDate(ctx.now(), location.timeZone, location.businessDayCutoffHour);
+        }
+        return ctx.repos.punches.listByLocationDate(args.locationId, date);
       },
     }),
   }),

@@ -1,5 +1,6 @@
 import "server-only";
 import { GraphQLClient } from "graphql-request";
+import { LocationsQuery, PunchesByDateQuery } from "../graphql/operations";
 import { getSessionToken } from "./auth/session";
 
 function requireEnv(name: string): string {
@@ -10,7 +11,6 @@ function requireEnv(name: string): string {
 
 /**
  * IdToken を Authorization: Bearer に載せた GraphQL クライアント（サーバー専用）。
- * オペレーションは #17 以降で codegen して利用する。
  */
 export async function createAdminGraphQLClient(idToken?: string): Promise<GraphQLClient> {
   const url = requireEnv("GRAPHQL_URL");
@@ -19,4 +19,19 @@ export async function createAdminGraphQLClient(idToken?: string): Promise<GraphQ
   return new GraphQLClient(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
+}
+
+export async function fetchLocations() {
+  const client = await createAdminGraphQLClient();
+  const data = await client.request(LocationsQuery);
+  return data.locations ?? [];
+}
+
+export async function fetchPunchesByDate(locationId: string, businessDate?: string) {
+  const client = await createAdminGraphQLClient();
+  const data = await client.request(PunchesByDateQuery, {
+    locationId,
+    businessDate: businessDate ?? null,
+  });
+  return data.punchesByDate ?? [];
 }
