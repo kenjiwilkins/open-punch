@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "codegen": "graphql-codegen --config codegen.ts"
   },
   "dependencies": {
+    "@graphql-typed-document-node/core": "catalog:",
     "@open-punch/ui": "workspace:*",
     "aws-jwt-verify": "catalog:",
     "graphql": "catalog:",
@@ -21,6 +23,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "catalog:",
+    "@graphql-codegen/client-preset": "catalog:",
     "@open-punch/config": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@testing-library/jest-dom": "catalog:",

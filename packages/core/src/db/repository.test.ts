@@ -52,7 +52,7 @@ const location: Location = {
 beforeEach(() => ddbMock.reset());
 
 describe("locations", () => {
-  it("put は LOCATION#/PROFILE キーで書かれる", async () => {
+  it("put は LOCATION#/PROFILE キーと GSI1(LOCATIONS) を持つ", async () => {
     ddbMock.on(PutCommand).resolves({});
     await repos.locations.put(location);
     const item = ddbMock.commandCalls(PutCommand)[0]!.args[0].input.Item!;
@@ -60,6 +60,21 @@ describe("locations", () => {
     expect(item.SK).toBe("PROFILE");
     expect(item.timeZone).toBe("Asia/Tokyo");
     expect(item.businessDayCutoffHour).toBe(0);
+    expect(item.GSI1PK).toBe("LOCATIONS");
+    expect(item.GSI1SK).toBe("渋谷店#L1");
+  });
+
+  it("list は GSI1 の LOCATIONS パーティションを Query する", async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [{ ...location, PK: "LOCATION#L1", SK: "PROFILE", entityType: "LOCATION" }],
+    });
+    const list = await repos.locations.list();
+    const input = ddbMock.commandCalls(QueryCommand)[0]!.args[0].input;
+    expect(input.IndexName).toBe("GSI1");
+    expect(input.ExpressionAttributeValues![":pk"]).toBe("LOCATIONS");
+    expect(list).toHaveLength(1);
+    expect(list[0]!.locationId).toBe("L1");
+    expect((list[0] as unknown as Record<string, unknown>).PK).toBeUndefined();
   });
 
   it("get はドメイン型に整形して返す（キー属性を含まない）", async () => {

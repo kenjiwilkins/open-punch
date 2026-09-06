@@ -16,9 +16,13 @@ export const SK = {
 } as const;
 
 // GSI1: 有効な Worker の拠点別一覧（スパース。active な Worker のみキーを持つ）。
+// あわせて、全 Location の一覧にも GSI1 を使う（固定パーティション "LOCATIONS"）。
+// Worker とは GSI1PK が異なる（LOCATION#xxx vs LOCATIONS）ため衝突しない。Scan を避けられる。
 export const GSI1 = {
   pk: (locationId: string): string => `LOCATION#${locationId}`,
   sk: (nameKana: string, workerId: string): string => `${nameKana}#WORKER#${workerId}`,
+  locationsPk: "LOCATIONS",
+  locationSk: (name: string, locationId: string): string => `${name}#${locationId}`,
 } as const;
 
 // GSI2: 拠点＋営業日別の打刻一覧。
