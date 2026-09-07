@@ -1,6 +1,22 @@
 import "server-only";
 import { GraphQLClient } from "graphql-request";
-import { LocationsQuery, PunchesByDateQuery } from "../graphql/operations";
+import type {
+  LocationCreateInput,
+  LocationUpdateInput,
+  WorkerCreateInput,
+  WorkerUpdateInput,
+} from "../gql/graphql";
+import {
+  AdminLocationsQuery,
+  CreateLocationMutation,
+  CreateWorkerMutation,
+  DeactivateWorkerMutation,
+  LocationsQuery,
+  PunchesByDateQuery,
+  UpdateLocationMutation,
+  UpdateWorkerMutation,
+  WorkersByLocationQuery,
+} from "../graphql/operations";
 import { getSessionToken } from "./auth/session";
 
 function requireEnv(name: string): string {
@@ -34,4 +50,41 @@ export async function fetchPunchesByDate(locationId: string, businessDate?: stri
     businessDate: businessDate ?? null,
   });
   return data.punchesByDate ?? [];
+}
+
+// --- CRUD ---------------------------------------------------------------------
+
+export async function fetchAdminLocations() {
+  const client = await createAdminGraphQLClient();
+  return (await client.request(AdminLocationsQuery)).locations ?? [];
+}
+
+export async function fetchWorkersByLocation(locationId: string) {
+  const client = await createAdminGraphQLClient();
+  return (await client.request(WorkersByLocationQuery, { locationId })).workersByLocation ?? [];
+}
+
+export async function createWorker(input: WorkerCreateInput) {
+  const client = await createAdminGraphQLClient();
+  return (await client.request(CreateWorkerMutation, { input })).createWorker;
+}
+
+export async function updateWorker(workerId: string, input: WorkerUpdateInput) {
+  const client = await createAdminGraphQLClient();
+  return (await client.request(UpdateWorkerMutation, { workerId, input })).updateWorker;
+}
+
+export async function deactivateWorker(workerId: string) {
+  const client = await createAdminGraphQLClient();
+  return (await client.request(DeactivateWorkerMutation, { workerId })).deactivateWorker;
+}
+
+export async function createLocation(input: LocationCreateInput) {
+  const client = await createAdminGraphQLClient();
+  return (await client.request(CreateLocationMutation, { input })).createLocation;
+}
+
+export async function updateLocation(locationId: string, input: LocationUpdateInput) {
+  const client = await createAdminGraphQLClient();
+  return (await client.request(UpdateLocationMutation, { locationId, input })).updateLocation;
 }

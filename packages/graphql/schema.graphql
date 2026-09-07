@@ -18,8 +18,28 @@ type Location {
   timeZone: String
 }
 
+input LocationCreateInput {
+  businessDayCutoffHour: Int
+  country: String
+  name: String!
+  timeZone: String!
+}
+
+input LocationUpdateInput {
+  active: Boolean
+  businessDayCutoffHour: Int
+  country: String
+  name: String
+  timeZone: String
+}
+
 type Mutation {
+  createLocation(input: LocationCreateInput!): Location
+  createWorker(input: WorkerCreateInput!): Worker
+  deactivateWorker(workerId: String!): Worker
   punch(type: PunchType!, workerId: String!): PunchEvent
+  updateLocation(input: LocationUpdateInput!, locationId: String!): Location
+  updateWorker(input: WorkerUpdateInput!, workerId: String!): Worker
 }
 
 type PunchEvent {
@@ -46,6 +66,7 @@ type Query {
   punchesByDate(businessDate: String, locationId: String!): [PunchEvent!]
   workerStatus(workerId: String!): WorkerDayStatus
   workers(locationId: String!): [Worker!]
+  workersByLocation(locationId: String!): [Worker!]
 }
 
 type Worker {
@@ -56,6 +77,13 @@ type Worker {
   locationId: String
   name: String
   nameKana: String
+}
+
+input WorkerCreateInput {
+  displayName: String!
+  locationId: String!
+  name: String!
+  nameKana: String!
 }
 
 type WorkerDayStatus {
@@ -69,4 +97,11 @@ enum WorkerStatus {
   CLOCKED_OUT
   NOT_CLOCKED_IN
   WORKING
+}
+
+input WorkerUpdateInput {
+  active: Boolean
+  displayName: String
+  name: String
+  nameKana: String
 }
