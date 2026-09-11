@@ -12,6 +12,72 @@ export const LocationsQuery = graphql(`
   }
 `);
 
+export const AdminLocationsQuery = graphql(`
+  query AdminLocations {
+    locations {
+      id
+      name
+      timeZone
+      businessDayCutoffHour
+      country
+      active
+    }
+  }
+`);
+
+export const WorkersByLocationQuery = graphql(`
+  query WorkersByLocation($locationId: String!) {
+    workersByLocation(locationId: $locationId) {
+      id
+      name
+      displayName
+      nameKana
+      active
+    }
+  }
+`);
+
+export const CreateWorkerMutation = graphql(`
+  mutation CreateWorker($input: WorkerCreateInput!) {
+    createWorker(input: $input) {
+      id
+    }
+  }
+`);
+
+export const UpdateWorkerMutation = graphql(`
+  mutation UpdateWorker($workerId: String!, $input: WorkerUpdateInput!) {
+    updateWorker(workerId: $workerId, input: $input) {
+      id
+    }
+  }
+`);
+
+export const DeactivateWorkerMutation = graphql(`
+  mutation DeactivateWorker($workerId: String!) {
+    deactivateWorker(workerId: $workerId) {
+      id
+      active
+    }
+  }
+`);
+
+export const CreateLocationMutation = graphql(`
+  mutation CreateLocation($input: LocationCreateInput!) {
+    createLocation(input: $input) {
+      id
+    }
+  }
+`);
+
+export const UpdateLocationMutation = graphql(`
+  mutation UpdateLocation($locationId: String!, $input: LocationUpdateInput!) {
+    updateLocation(locationId: $locationId, input: $input) {
+      id
+    }
+  }
+`);
+
 export const PunchesByDateQuery = graphql(`
   query PunchesByDate($locationId: String!, $businessDate: String) {
     punchesByDate(locationId: $locationId, businessDate: $businessDate) {

@@ -1,3 +1,4 @@
+import { AdminNav } from "../src/components/admin-nav";
 import {
   DailyPunchesView,
   type PunchRow,
@@ -39,15 +40,8 @@ export default async function Page({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">当日打刻一覧</h1>
-          <p className="text-muted-foreground">{employee.email} でログイン中</p>
-        </div>
-        <a href="/api/auth/logout" className="text-primary underline underline-offset-4">
-          ログアウト
-        </a>
-      </header>
+      <AdminNav email={employee.email} />
+      <h1 className="text-2xl font-bold tracking-tight">当日打刻一覧</h1>
 
       <DailyPunchesView
         locations={locations.flatMap((l) => (l?.id && l.name ? [{ id: l.id, name: l.name }] : []))}

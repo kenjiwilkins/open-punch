@@ -19,7 +19,8 @@
     "aws-jwt-verify": "catalog:",
     "graphql": "catalog:",
     "graphql-yoga": "catalog:",
-    "ulid": "catalog:"
+    "ulid": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@open-punch/config": "workspace:*",
