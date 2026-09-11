@@ -58,6 +58,15 @@ DynamoDB は **aws-sdk-client-mock** でモックし、実 AWS なしで回す�
 
 補足で M1 追加分: `punch` の連打デデュープ・`businessDate` を拠点TZで確定（`resolvers.test.ts`）、`locations`/`workers`/`punches` の Repository キー生成・クエリ（`repository.test.ts`）。
 
+## M2/M3 の UI テスト状況
+
+- **kiosk（M2）**: `WorkerGrid`（かな順/空）、`PunchPanel`（出し分け・連打抑制・完了・自動復帰）、データ層（`x-api-key`・時刻を送らない）、ホーム/打刻ページ統合。
+- **admin（M3）**:
+  - 認証ガード: `guard.test.ts`（未ログインで `redirect`）＋ 各ページ統合テストで未ログイン時のリダイレクトを確認（`app/**/page.test.tsx`）。
+  - 当日一覧: `daily-punches-view.test.tsx`（拠点TZ表示）＋ ホーム統合。IANA TZ は `format.test.ts`（JST=+9 / 豪州 Adelaide=+9:30）。
+  - CRUD フォーム: `location-form`/`worker-form`（描画・送信で FormData・`BAD_USER_INPUT` 表示）、`crud-actions`（入力マッピング・エラー）、拠点/アルバイトページ統合（一覧・編集・退職）。
+- GraphQL 呼び出しは全てモック、E2E は行わない（方針通り）。
+
 ## カバレッジ目標
 
 | 対象 | 目標 |
