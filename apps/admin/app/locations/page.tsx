@@ -9,9 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LocationsPage() {
   const employee = await requireEmployee();
-  const locations = (await fetchAdminLocations()).flatMap((l) =>
-    l?.id && l.name ? [l] : [],
-  );
+  const locations = await fetchAdminLocations();
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 p-8">
@@ -34,7 +32,7 @@ export default async function LocationsPage() {
               <tr key={l.id} className="border-b">
                 <td className="py-2 pr-4">{l.name}</td>
                 <td className="py-2 pr-4">{l.timeZone}</td>
-                <td className="py-2 pr-4 tabular-nums">{l.businessDayCutoffHour ?? 0}</td>
+                <td className="py-2 pr-4 tabular-nums">{l.businessDayCutoffHour}</td>
                 <td className="py-2 pr-4">{l.active ? "有効" : "無効"}</td>
                 <td className="py-2">
                   <Link

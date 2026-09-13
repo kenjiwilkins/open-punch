@@ -1,8 +1,8 @@
 type Employee {
-  email: String
-  name: String
-  role: EmployeeRole
-  sub: ID
+  email: String!
+  name: String!
+  role: EmployeeRole!
+  sub: ID!
 }
 
 enum EmployeeRole {
@@ -10,12 +10,12 @@ enum EmployeeRole {
 }
 
 type Location {
-  active: Boolean
-  businessDayCutoffHour: Int
+  active: Boolean!
+  businessDayCutoffHour: Int!
   country: String
-  id: ID
-  name: String
-  timeZone: String
+  id: ID!
+  name: String!
+  timeZone: String!
 }
 
 input LocationCreateInput {
@@ -34,25 +34,25 @@ input LocationUpdateInput {
 }
 
 type Mutation {
-  createLocation(input: LocationCreateInput!): Location
-  createWorker(input: WorkerCreateInput!): Worker
-  deactivateWorker(workerId: String!): Worker
-  punch(type: PunchType!, workerId: String!): PunchEvent
-  updateLocation(input: LocationUpdateInput!, locationId: String!): Location
-  updateWorker(input: WorkerUpdateInput!, workerId: String!): Worker
+  createLocation(input: LocationCreateInput!): Location!
+  createWorker(input: WorkerCreateInput!): Worker!
+  deactivateWorker(workerId: String!): Worker!
+  punch(type: PunchType!, workerId: String!): PunchEvent!
+  updateLocation(input: LocationUpdateInput!, locationId: String!): Location!
+  updateWorker(input: WorkerUpdateInput!, workerId: String!): Worker!
 }
 
 type PunchEvent {
-  businessDate: String
-  corrected: Boolean
-  id: ID
-  locationId: String
+  businessDate: String!
+  corrected: Boolean!
+  id: ID!
+  locationId: String!
   note: String
-  occurredAt: String
-  timeZone: String
-  type: PunchType
+  occurredAt: String!
+  timeZone: String!
+  type: PunchType!
   worker: Worker
-  workerId: String
+  workerId: String!
 }
 
 enum PunchType {
@@ -61,22 +61,22 @@ enum PunchType {
 }
 
 type Query {
-  health: String
-  locations: [Location!]
-  punchesByDate(businessDate: String, locationId: String!): [PunchEvent!]
-  workerStatus(workerId: String!): WorkerDayStatus
-  workers(locationId: String!): [Worker!]
-  workersByLocation(locationId: String!): [Worker!]
+  health: String!
+  locations: [Location!]!
+  punchesByDate(businessDate: String, locationId: String!): [PunchEvent!]!
+  workerStatus(workerId: String!): WorkerDayStatus!
+  workers(locationId: String!): [Worker!]!
+  workersByLocation(locationId: String!): [Worker!]!
 }
 
 type Worker {
-  active: Boolean
-  createdAt: String
-  displayName: String
-  id: ID
-  locationId: String
-  name: String
-  nameKana: String
+  active: Boolean!
+  createdAt: String!
+  displayName: String!
+  id: ID!
+  locationId: String!
+  name: String!
+  nameKana: String!
 }
 
 input WorkerCreateInput {
@@ -88,9 +88,9 @@ input WorkerCreateInput {
 
 type WorkerDayStatus {
   lastPunchAt: String
-  punchesToday: [PunchEvent!]
-  status: WorkerStatus
-  workerId: ID
+  punchesToday: [PunchEvent!]!
+  status: WorkerStatus!
+  workerId: ID!
 }
 
 enum WorkerStatus {

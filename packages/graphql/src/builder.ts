@@ -19,7 +19,13 @@ export interface GraphQLContext {
   now: () => Date;
 }
 
-export const builder = new SchemaBuilder<{ Context: GraphQLContext }>({});
+// 既定を non-null に。本当に任意なフィールドだけ各所で nullable: true を明示する（#32）。
+export const builder = new SchemaBuilder<{
+  Context: GraphQLContext;
+  DefaultFieldNullability: false;
+}>({
+  defaultFieldNullability: false,
+});
 
 // --- 認可ヘルパ（docs/04-graphql-schema.md のオペレーション表を強制） -----------
 

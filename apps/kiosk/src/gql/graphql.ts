@@ -18,10 +18,10 @@ export type Scalars = {
 
 export type Employee = {
   __typename?: 'Employee';
-  email?: Maybe<Scalars['String']['output']>;
-  name?: Maybe<Scalars['String']['output']>;
-  role?: Maybe<EmployeeRole>;
-  sub?: Maybe<Scalars['ID']['output']>;
+  email: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  role: EmployeeRole;
+  sub: Scalars['ID']['output'];
 };
 
 export enum EmployeeRole {
@@ -30,17 +30,52 @@ export enum EmployeeRole {
 
 export type Location = {
   __typename?: 'Location';
-  active?: Maybe<Scalars['Boolean']['output']>;
-  businessDayCutoffHour?: Maybe<Scalars['Int']['output']>;
+  active: Scalars['Boolean']['output'];
+  businessDayCutoffHour: Scalars['Int']['output'];
   country?: Maybe<Scalars['String']['output']>;
-  id?: Maybe<Scalars['ID']['output']>;
-  name?: Maybe<Scalars['String']['output']>;
-  timeZone?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  timeZone: Scalars['String']['output'];
+};
+
+export type LocationCreateInput = {
+  businessDayCutoffHour?: InputMaybe<Scalars['Int']['input']>;
+  country?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  timeZone: Scalars['String']['input'];
+};
+
+export type LocationUpdateInput = {
+  active?: InputMaybe<Scalars['Boolean']['input']>;
+  businessDayCutoffHour?: InputMaybe<Scalars['Int']['input']>;
+  country?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  timeZone?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Mutation = {
   __typename?: 'Mutation';
-  punch?: Maybe<PunchEvent>;
+  createLocation: Location;
+  createWorker: Worker;
+  deactivateWorker: Worker;
+  punch: PunchEvent;
+  updateLocation: Location;
+  updateWorker: Worker;
+};
+
+
+export type MutationCreateLocationArgs = {
+  input: LocationCreateInput;
+};
+
+
+export type MutationCreateWorkerArgs = {
+  input: WorkerCreateInput;
+};
+
+
+export type MutationDeactivateWorkerArgs = {
+  workerId: Scalars['String']['input'];
 };
 
 
@@ -49,17 +84,30 @@ export type MutationPunchArgs = {
   workerId: Scalars['String']['input'];
 };
 
+
+export type MutationUpdateLocationArgs = {
+  input: LocationUpdateInput;
+  locationId: Scalars['String']['input'];
+};
+
+
+export type MutationUpdateWorkerArgs = {
+  input: WorkerUpdateInput;
+  workerId: Scalars['String']['input'];
+};
+
 export type PunchEvent = {
   __typename?: 'PunchEvent';
-  businessDate?: Maybe<Scalars['String']['output']>;
-  corrected?: Maybe<Scalars['Boolean']['output']>;
-  id?: Maybe<Scalars['ID']['output']>;
-  locationId?: Maybe<Scalars['String']['output']>;
+  businessDate: Scalars['String']['output'];
+  corrected: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  locationId: Scalars['String']['output'];
   note?: Maybe<Scalars['String']['output']>;
-  occurredAt?: Maybe<Scalars['String']['output']>;
-  timeZone?: Maybe<Scalars['String']['output']>;
-  type?: Maybe<PunchType>;
-  workerId?: Maybe<Scalars['String']['output']>;
+  occurredAt: Scalars['String']['output'];
+  timeZone: Scalars['String']['output'];
+  type: PunchType;
+  worker?: Maybe<Worker>;
+  workerId: Scalars['String']['output'];
 };
 
 export enum PunchType {
@@ -69,9 +117,18 @@ export enum PunchType {
 
 export type Query = {
   __typename?: 'Query';
-  health?: Maybe<Scalars['String']['output']>;
-  workerStatus?: Maybe<WorkerDayStatus>;
-  workers?: Maybe<Array<Worker>>;
+  health: Scalars['String']['output'];
+  locations: Array<Location>;
+  punchesByDate: Array<PunchEvent>;
+  workerStatus: WorkerDayStatus;
+  workers: Array<Worker>;
+  workersByLocation: Array<Worker>;
+};
+
+
+export type QueryPunchesByDateArgs = {
+  businessDate?: InputMaybe<Scalars['String']['input']>;
+  locationId: Scalars['String']['input'];
 };
 
 
@@ -84,23 +141,35 @@ export type QueryWorkersArgs = {
   locationId: Scalars['String']['input'];
 };
 
+
+export type QueryWorkersByLocationArgs = {
+  locationId: Scalars['String']['input'];
+};
+
 export type Worker = {
   __typename?: 'Worker';
-  active?: Maybe<Scalars['Boolean']['output']>;
-  createdAt?: Maybe<Scalars['String']['output']>;
-  displayName?: Maybe<Scalars['String']['output']>;
-  id?: Maybe<Scalars['ID']['output']>;
-  locationId?: Maybe<Scalars['String']['output']>;
-  name?: Maybe<Scalars['String']['output']>;
-  nameKana?: Maybe<Scalars['String']['output']>;
+  active: Scalars['Boolean']['output'];
+  createdAt: Scalars['String']['output'];
+  displayName: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  locationId: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  nameKana: Scalars['String']['output'];
+};
+
+export type WorkerCreateInput = {
+  displayName: Scalars['String']['input'];
+  locationId: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  nameKana: Scalars['String']['input'];
 };
 
 export type WorkerDayStatus = {
   __typename?: 'WorkerDayStatus';
   lastPunchAt?: Maybe<Scalars['String']['output']>;
-  punchesToday?: Maybe<Array<PunchEvent>>;
-  status?: Maybe<WorkerStatus>;
-  workerId?: Maybe<Scalars['ID']['output']>;
+  punchesToday: Array<PunchEvent>;
+  status: WorkerStatus;
+  workerId: Scalars['ID']['output'];
 };
 
 export enum WorkerStatus {
@@ -109,19 +178,26 @@ export enum WorkerStatus {
   Working = 'WORKING'
 }
 
+export type WorkerUpdateInput = {
+  active?: InputMaybe<Scalars['Boolean']['input']>;
+  displayName?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  nameKana?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type WorkersQueryVariables = Exact<{
   locationId: Scalars['String']['input'];
 }>;
 
 
-export type WorkersQuery = { __typename?: 'Query', workers?: Array<{ __typename?: 'Worker', id?: string | null, displayName?: string | null, nameKana?: string | null }> | null };
+export type WorkersQuery = { __typename?: 'Query', workers: Array<{ __typename?: 'Worker', id: string, displayName: string, nameKana: string }> };
 
 export type WorkerStatusQueryVariables = Exact<{
   workerId: Scalars['String']['input'];
 }>;
 
 
-export type WorkerStatusQuery = { __typename?: 'Query', workerStatus?: { __typename?: 'WorkerDayStatus', workerId?: string | null, status?: WorkerStatus | null, lastPunchAt?: string | null } | null };
+export type WorkerStatusQuery = { __typename?: 'Query', workerStatus: { __typename?: 'WorkerDayStatus', workerId: string, status: WorkerStatus, lastPunchAt?: string | null } };
 
 export type PunchMutationVariables = Exact<{
   workerId: Scalars['String']['input'];
@@ -129,7 +205,7 @@ export type PunchMutationVariables = Exact<{
 }>;
 
 
-export type PunchMutation = { __typename?: 'Mutation', punch?: { __typename?: 'PunchEvent', id?: string | null, type?: PunchType | null, occurredAt?: string | null, businessDate?: string | null } | null };
+export type PunchMutation = { __typename?: 'Mutation', punch: { __typename?: 'PunchEvent', id: string, type: PunchType, occurredAt: string, businessDate: string } };
 
 
 export const WorkersDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Workers"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"locationId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"workers"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"locationId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"locationId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"displayName"}},{"kind":"Field","name":{"kind":"Name","value":"nameKana"}}]}}]}}]} as unknown as DocumentNode<WorkersQuery, WorkersQueryVariables>;

@@ -17,14 +17,8 @@ export default async function WorkersPage({
   const { location } = await searchParams;
   const selected = location ?? null;
 
-  const locations = (await fetchAdminLocations()).flatMap((l) =>
-    l?.id && l.name ? [{ id: l.id, name: l.name }] : [],
-  );
-  const workers = selected
-    ? (await fetchWorkersByLocation(selected)).flatMap((w) =>
-        w?.id && w.displayName ? [w] : [],
-      )
-    : [];
+  const locations = (await fetchAdminLocations()).map((l) => ({ id: l.id, name: l.name }));
+  const workers = selected ? await fetchWorkersByLocation(selected) : [];
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 p-8">
@@ -83,7 +77,7 @@ export default async function WorkersPage({
                         >
                           編集
                         </Link>
-                        <form action={deactivateWorkerAction.bind(null, w.id ?? "", selected)}>
+                        <form action={deactivateWorkerAction.bind(null, w.id, selected)}>
                           <Button type="submit" variant="destructive" size="sm">
                             退職
                           </Button>

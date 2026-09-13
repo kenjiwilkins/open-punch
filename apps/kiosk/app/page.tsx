@@ -11,12 +11,8 @@ export default async function Page() {
 
   try {
     const raw = await fetchWorkers();
-    // スキーマ上フィールドは nullable なので、必須項目が揃うものだけを通す。
-    workers = raw.flatMap((w) =>
-      w?.id && w.displayName
-        ? [{ id: w.id, displayName: w.displayName, nameKana: w.nameKana ?? null }]
-        : [],
-    );
+    // スキーマが non-null 化された（#32）ので防御的な絞り込みは不要。
+    workers = raw.map((w) => ({ id: w.id, displayName: w.displayName, nameKana: w.nameKana }));
   } catch (e) {
     error = e instanceof Error ? e.message : "不明なエラー";
   }
