@@ -80,15 +80,19 @@ type WorkerDayStatus {
 | `createWorker(input: CreateWorkerInput!): Worker!` | 🔒 cognito | アルバイト追加 |
 | `updateWorker(id: ID!, input: UpdateWorkerInput!): Worker!` | 🔒 cognito | アルバイト編集 |
 | `deactivateWorker(id: ID!): Worker!` | 🔒 cognito | 退職処理（active=false） |
-| `correctPunch(id: ID!, input: CorrectPunchInput!): PunchEvent!` | 🔒 cognito | 打刻の補正 |
+| `correctPunch(workerId: String!, id: String!, occurredAt: String!, input: CorrectPunchInput!): PunchEvent!` | 🔒 cognito | 打刻の補正 |
 | `createManualPunch(input: ManualPunchInput!): PunchEvent!` | 🔒 cognito | 打刻漏れの手動追加 |
 
 ```graphql
 input CreateWorkerInput { name: String!, displayName: String, nameKana: String }
 input UpdateWorkerInput { name: String, displayName: String, nameKana: String, active: Boolean }
-input CorrectPunchInput { occurredAt: String, type: PunchType, note: String }
-input ManualPunchInput { workerId: ID!, type: PunchType!, occurredAt: String!, note: String }
+input CorrectPunchInput { occurredAt: String, type: PunchType, note: String! }
+input ManualPunchInput { workerId: ID!, type: PunchType!, occurredAt: String!, note: String! }
 ```
+
+- **`correctPunch` は `workerId`/`occurredAt` を引数に取る（#20 で確定・上記は当初案から変更）**。PunchEvent の DynamoDB キーは `PK=WORKER#<workerId>`, `SK=PUNCH#<occurredAt>#<id>`（[03-data-model.md](./03-data-model.md)）なので、`id` だけでは対象を一意に GetItem できない。管理画面はすでに一覧取得時点で対象行の `workerId`/`occurredAt` を持っているため、これを渡してもらう。
+- **`note` は補正・手動追加とも必須**（鉄則8・#20）。理由を残さない補正は許可しない。
+- `occurredAt` を変更する補正は SK が変わるため、内部的には旧アイテムの Delete + 新アイテムの Put + PunchAudit の Put（3件）を、`occurredAt` を変えない補正（`type` のみ）は Put（上書き）+ PunchAudit の Put（2件）を、それぞれ同一 `TransactWriteItems` で原子的に書く（同一キーを1トランザクション内で2度操作できない DynamoDB の制約のため分岐する）。
 
 ## 重要な設計ポイント
 

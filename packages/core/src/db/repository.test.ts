@@ -4,10 +4,11 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Location, PunchEvent, Worker } from "../domain/types";
+import type { Location, PunchAudit, PunchEvent, Worker } from "../domain/types";
 import { PunchType } from "../domain/types";
 import { createRepositories } from "./repository";
 
@@ -161,5 +162,82 @@ describe("punches", () => {
     const input = ddbMock.commandCalls(QueryCommand)[0]!.args[0].input;
     expect(input.IndexName).toBe("GSI2");
     expect(input.ExpressionAttributeValues![":pk"]).toBe("LOCATION#L1#2026-08-25");
+  });
+
+  it("get は PK/SK(occurredAt+id) で1件取得する", async () => {
+    ddbMock.on(GetCommand).resolves({ Item: { ...punch, PK: "WORKER#W1", SK: "PUNCH#2026-08-25T00:01:00Z#01K" } });
+    const got = await repos.punches.get("W1", "2026-08-25T00:01:00Z", "01K");
+    const input = ddbMock.commandCalls(GetCommand)[0]!.args[0].input;
+    expect(input.Key).toEqual({ PK: "WORKER#W1", SK: "PUNCH#2026-08-25T00:01:00Z#01K" });
+    expect(got?.id).toBe("01K");
+  });
+
+  const audit: PunchAudit = {
+    id: "01AUDIT",
+    workerId: "W1",
+    action: "CORRECT",
+    targetPunchId: "01K",
+    before: { occurredAt: "2026-08-25T00:01:00Z", type: PunchType.CLOCK_IN },
+    after: { occurredAt: "2026-08-25T00:05:00Z", type: PunchType.CLOCK_IN },
+    performedBy: "employee-sub",
+    note: "打刻漏れのため補正",
+    createdAt: "2026-08-25T10:00:00Z",
+  };
+
+  it("correctInTransaction: occurredAt 変更時は Delete(旧)+Put(新)+Put(audit) の3件を1トランザクションで書く", async () => {
+    ddbMock.on(TransactWriteCommand).resolves({});
+    const after: PunchEvent = { ...punch, occurredAt: "2026-08-25T00:05:00Z", corrected: true, correctedBy: "employee-sub" };
+    await repos.punches.correctInTransaction({ before: punch, after, audit });
+
+    expect(ddbMock.commandCalls(TransactWriteCommand)).toHaveLength(1);
+    const items = ddbMock.commandCalls(TransactWriteCommand)[0]!.args[0].input.TransactItems!;
+    expect(items).toHaveLength(3);
+    expect(items[0]!.Delete!.Key).toEqual({ PK: "WORKER#W1", SK: "PUNCH#2026-08-25T00:01:00Z#01K" });
+    expect(items[1]!.Put!.Item!.SK).toBe("PUNCH#2026-08-25T00:05:00Z#01K");
+    expect(items[1]!.Put!.Item!.corrected).toBe(true);
+    expect(items[2]!.Put!.Item!.PK).toBe("WORKER#W1");
+    expect(items[2]!.Put!.Item!.SK).toBe("AUDIT#2026-08-25T10:00:00Z#01AUDIT");
+    expect(items[2]!.Put!.Item!.action).toBe("CORRECT");
+    expect(items[2]!.Put!.Item!.before).toEqual(audit.before);
+    expect(items[2]!.Put!.Item!.after).toEqual(audit.after);
+  });
+
+  it("correctInTransaction: occurredAt 不変（type のみ補正）時は同一キーへの Delete を含めず Put(新)+Put(audit) の2件にする", async () => {
+    ddbMock.on(TransactWriteCommand).resolves({});
+    const after: PunchEvent = { ...punch, type: PunchType.CLOCK_OUT, corrected: true, correctedBy: "employee-sub" };
+    const sameKeyAudit: PunchAudit = {
+      ...audit,
+      after: { occurredAt: punch.occurredAt, type: PunchType.CLOCK_OUT },
+    };
+    await repos.punches.correctInTransaction({ before: punch, after, audit: sameKeyAudit });
+
+    const items = ddbMock.commandCalls(TransactWriteCommand)[0]!.args[0].input.TransactItems!;
+    expect(items).toHaveLength(2);
+    expect(items[0]!.Put!.Item!.SK).toBe("PUNCH#2026-08-25T00:01:00Z#01K");
+    expect(items[0]!.Put!.Item!.type).toBe("CLOCK_OUT");
+    expect(items[1]!.Put!.Item!.action).toBe("CORRECT");
+  });
+
+  it("createManualInTransaction: 新規 PunchEvent + PunchAudit(MANUAL_ADD) の2件を1トランザクションで書く", async () => {
+    ddbMock.on(TransactWriteCommand).resolves({});
+    const manualPunch: PunchEvent = { ...punch, id: "01NEW", source: "MANUAL", note: "打刻漏れ追加" };
+    const manualAudit: PunchAudit = {
+      id: "01AUDIT2",
+      workerId: "W1",
+      action: "MANUAL_ADD",
+      targetPunchId: "01NEW",
+      after: { occurredAt: manualPunch.occurredAt, type: manualPunch.type },
+      performedBy: "employee-sub",
+      note: "打刻漏れ追加",
+      createdAt: "2026-08-25T10:00:00Z",
+    };
+    await repos.punches.createManualInTransaction({ punch: manualPunch, audit: manualAudit });
+
+    const items = ddbMock.commandCalls(TransactWriteCommand)[0]!.args[0].input.TransactItems!;
+    expect(items).toHaveLength(2);
+    expect(items[0]!.Put!.Item!.id).toBe("01NEW");
+    expect(items[0]!.Put!.Item!.source).toBe("MANUAL");
+    expect(items[1]!.Put!.Item!.action).toBe("MANUAL_ADD");
+    expect(items[1]!.Put!.Item!.before).toBeUndefined();
   });
 });

@@ -1,9 +1,9 @@
-import type { Location, Worker } from "@open-punch/core";
+import { computeBusinessDate, type Location, type PunchAudit, type PunchEvent, type Worker } from "@open-punch/core";
 import { createGraphQLError } from "graphql-yoga";
 import { ulid } from "ulid";
 import { z } from "zod";
 import { builder, requireEmployee } from "./builder";
-import { LocationRef, WorkerRef } from "./types";
+import { LocationRef, PunchEventRef, PunchTypeEnum, WorkerRef } from "./types";
 
 // 社員（admin）向けの CRUD。すべて cognito 認証必須。
 
@@ -39,9 +39,16 @@ function definedOnly<T extends object>(obj: T): Partial<T> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 }
 
+function isValidISODateTime(v: string): boolean {
+  return !Number.isNaN(Date.parse(v));
+}
+
 const nonEmpty = z.string().trim().min(1);
 const timeZone = z.string().refine(isValidTimeZone, "有効な IANA タイムゾーン名ではありません");
 const cutoffHour = z.number().int().min(0).max(23);
+const isoDateTime = z.string().refine(isValidISODateTime, "有効な日時（ISO8601）ではありません");
+// 補正・手動打刻の理由は必須（鉄則8・#20）。
+const reasonNote = nonEmpty;
 
 const workerCreateSchema = z.object({
   locationId: nonEmpty,
@@ -67,6 +74,15 @@ const locationUpdateSchema = z.object({
   businessDayCutoffHour: cutoffHour.optional(),
   country: nonEmpty.optional(),
   active: z.boolean().optional(),
+});
+const correctPunchSchema = z.object({
+  occurredAt: isoDateTime.optional(),
+  note: reasonNote,
+});
+const manualPunchSchema = z.object({
+  workerId: nonEmpty,
+  occurredAt: isoDateTime,
+  note: reasonNote,
 });
 
 // --- input types --------------------------------------------------------------
@@ -105,6 +121,24 @@ const LocationUpdateInput = builder.inputType("LocationUpdateInput", {
     businessDayCutoffHour: t.int({ required: false }),
     country: t.string({ required: false }),
     active: t.boolean({ required: false }),
+  }),
+});
+
+// occurredAt/type は省略可（省略時は既存値を維持）。note は理由として必須。
+const CorrectPunchInput = builder.inputType("CorrectPunchInput", {
+  fields: (t) => ({
+    occurredAt: t.string({ required: false }),
+    type: t.field({ type: PunchTypeEnum, required: false }),
+    note: t.string({ required: true }),
+  }),
+});
+
+const ManualPunchInput = builder.inputType("ManualPunchInput", {
+  fields: (t) => ({
+    workerId: t.string({ required: true }),
+    type: t.field({ type: PunchTypeEnum, required: true }),
+    occurredAt: t.string({ required: true }),
+    note: t.string({ required: true }),
   }),
 });
 
@@ -241,6 +275,108 @@ builder.mutationFields((t) => ({
         ...definedOnly(patch),
         updatedAt: ctx.now().toISOString(),
       });
+    },
+  }),
+
+  /**
+   * 打刻補正（鉄則3・8）。元イベントは書き換えず、対象更新と PunchAudit 追加を
+   * TransactWriteItems で原子的に書く。id は SK に occurredAt を含むため
+   * workerId/occurredAt もあわせて渡してもらい、複合キーで一意に引く。
+   */
+  correctPunch: t.field({
+    type: PunchEventRef,
+    args: {
+      workerId: t.arg.string({ required: true }),
+      id: t.arg.string({ required: true }),
+      occurredAt: t.arg.string({ required: true }),
+      input: t.arg({ type: CorrectPunchInput, required: true }),
+    },
+    resolve: async (_parent, args, ctx) => {
+      const employee = requireEmployee(ctx);
+      const patch = parseOrThrow(correctPunchSchema, {
+        occurredAt: args.input.occurredAt ?? undefined,
+        note: args.input.note,
+      });
+      const existing = await ctx.repos.punches.get(args.workerId, args.occurredAt, args.id);
+      if (!existing) throw notFound("punch");
+      const location = await ctx.repos.locations.get(existing.locationId);
+      if (!location) throw notFound("location");
+
+      const newOccurredAt = patch.occurredAt ?? existing.occurredAt;
+      const newType = args.input.type ?? existing.type;
+      const after: PunchEvent = {
+        ...existing,
+        occurredAt: newOccurredAt,
+        type: newType,
+        businessDate: computeBusinessDate(
+          new Date(newOccurredAt),
+          location.timeZone,
+          location.businessDayCutoffHour,
+        ),
+        corrected: true,
+        correctedBy: employee.sub,
+        note: patch.note,
+      };
+      const audit: PunchAudit = {
+        id: ulid(),
+        workerId: existing.workerId,
+        action: "CORRECT",
+        targetPunchId: existing.id,
+        before: { occurredAt: existing.occurredAt, type: existing.type },
+        after: { occurredAt: after.occurredAt, type: after.type },
+        performedBy: employee.sub,
+        note: patch.note,
+        createdAt: ctx.now().toISOString(),
+      };
+      return ctx.repos.punches.correctInTransaction({ before: existing, after, audit });
+    },
+  }),
+
+  /** 打刻漏れの手動追加（鉄則3・8）。新規 PunchEvent と PunchAudit(MANUAL_ADD) を原子的に書く。 */
+  createManualPunch: t.field({
+    type: PunchEventRef,
+    args: { input: t.arg({ type: ManualPunchInput, required: true }) },
+    resolve: async (_parent, args, ctx) => {
+      const employee = requireEmployee(ctx);
+      const input = parseOrThrow(manualPunchSchema, {
+        workerId: args.input.workerId,
+        occurredAt: args.input.occurredAt,
+        note: args.input.note,
+      });
+      const worker = await ctx.repos.workers.get(input.workerId);
+      if (!worker) throw badInput("workerId が存在しません");
+      const location = await ctx.repos.locations.get(worker.locationId);
+      if (!location) throw notFound("location");
+
+      const now = ctx.now().toISOString();
+      const punch: PunchEvent = {
+        id: ulid(),
+        workerId: worker.workerId,
+        locationId: worker.locationId,
+        type: args.input.type,
+        occurredAt: input.occurredAt,
+        timeZone: location.timeZone,
+        businessDate: computeBusinessDate(
+          new Date(input.occurredAt),
+          location.timeZone,
+          location.businessDayCutoffHour,
+        ),
+        source: "MANUAL",
+        corrected: false,
+        note: input.note,
+        createdAt: now,
+      };
+      const audit: PunchAudit = {
+        id: ulid(),
+        workerId: worker.workerId,
+        action: "MANUAL_ADD",
+        targetPunchId: punch.id,
+        after: { occurredAt: punch.occurredAt, type: punch.type },
+        performedBy: employee.sub,
+        note: input.note,
+        createdAt: now,
+      };
+      return ctx.repos.punches.createManualInTransaction({ punch, audit });
     },
   }),
 }));

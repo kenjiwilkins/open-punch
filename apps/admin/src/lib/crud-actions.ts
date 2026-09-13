@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { PunchType } from "../gql/graphql";
 import {
+  correctPunch,
   createLocation,
+  createManualPunch,
   createWorker,
   deactivateWorker,
   updateLocation,
@@ -122,4 +125,47 @@ export async function deactivateWorkerAction(
   await deactivateWorker(workerId);
   revalidatePath("/workers");
   redirect(`/workers?location=${locationId}`);
+}
+
+// --- 打刻補正・手動追加（#20。鉄則8: PunchAudit が append される） -----------------
+
+/** 補正対象の複合キー（PunchEvent の SK が occurredAt を含むため id だけでは引けない）。 */
+export async function correctPunchAction(
+  workerId: string,
+  id: string,
+  occurredAt: string,
+  locationId: string,
+  _prev: FormState,
+  fd: FormData,
+): Promise<FormState> {
+  try {
+    await correctPunch(workerId, id, occurredAt, {
+      occurredAt: optStr(fd, "occurredAt"),
+      type: optStr(fd, "type") as PunchType | undefined,
+      note: str(fd, "note"),
+    });
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+  revalidatePath("/");
+  redirect(`/?location=${locationId}`);
+}
+
+export async function createManualPunchAction(
+  locationId: string,
+  _prev: FormState,
+  fd: FormData,
+): Promise<FormState> {
+  try {
+    await createManualPunch({
+      workerId: str(fd, "workerId"),
+      type: str(fd, "type") as PunchType,
+      occurredAt: str(fd, "occurredAt"),
+      note: str(fd, "note"),
+    });
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+  revalidatePath("/");
+  redirect(`/?location=${locationId}`);
 }

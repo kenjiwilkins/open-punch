@@ -16,6 +16,12 @@ export type Scalars = {
   Float: { input: number; output: number; }
 };
 
+export type CorrectPunchInput = {
+  note: Scalars['String']['input'];
+  occurredAt?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<PunchType>;
+};
+
 export type Employee = {
   __typename?: 'Employee';
   email: Scalars['String']['output'];
@@ -53,9 +59,18 @@ export type LocationUpdateInput = {
   timeZone?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type ManualPunchInput = {
+  note: Scalars['String']['input'];
+  occurredAt: Scalars['String']['input'];
+  type: PunchType;
+  workerId: Scalars['String']['input'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
+  correctPunch: PunchEvent;
   createLocation: Location;
+  createManualPunch: PunchEvent;
   createWorker: Worker;
   deactivateWorker: Worker;
   punch: PunchEvent;
@@ -64,8 +79,21 @@ export type Mutation = {
 };
 
 
+export type MutationCorrectPunchArgs = {
+  id: Scalars['String']['input'];
+  input: CorrectPunchInput;
+  occurredAt: Scalars['String']['input'];
+  workerId: Scalars['String']['input'];
+};
+
+
 export type MutationCreateLocationArgs = {
   input: LocationCreateInput;
+};
+
+
+export type MutationCreateManualPunchArgs = {
+  input: ManualPunchInput;
 };
 
 
