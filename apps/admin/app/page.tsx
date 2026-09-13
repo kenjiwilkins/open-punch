@@ -22,20 +22,14 @@ export default async function Page({
   let punches: PunchRow[] = [];
   if (selectedLocationId) {
     const raw = await fetchPunchesByDate(selectedLocationId);
-    // スキーマ上フィールドは nullable なので、必須が揃うものだけ通す。
-    punches = raw.flatMap((p) =>
-      p?.id && p.type && p.occurredAt && p.timeZone
-        ? [
-            {
-              id: p.id,
-              type: p.type,
-              occurredAt: p.occurredAt,
-              timeZone: p.timeZone,
-              workerName: p.worker?.displayName ?? "(不明)",
-            },
-          ]
-        : [],
-    );
+    punches = raw.map((p) => ({
+      id: p.id,
+      type: p.type,
+      occurredAt: p.occurredAt,
+      timeZone: p.timeZone,
+      // worker は退職等で関連が外れうるので任意のまま。
+      workerName: p.worker?.displayName ?? "(不明)",
+    }));
   }
 
   return (
@@ -44,7 +38,7 @@ export default async function Page({
       <h1 className="text-2xl font-bold tracking-tight">当日打刻一覧</h1>
 
       <DailyPunchesView
-        locations={locations.flatMap((l) => (l?.id && l.name ? [{ id: l.id, name: l.name }] : []))}
+        locations={locations.map((l) => ({ id: l.id, name: l.name }))}
         selectedLocationId={selectedLocationId}
         punches={punches}
       />

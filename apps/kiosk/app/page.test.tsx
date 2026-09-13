@@ -12,16 +12,16 @@ afterEach(() => {
 });
 
 describe("ホーム（名前一覧）", () => {
-  it("有効なワーカーを表示し、必須項目が欠けるものは除外する", async () => {
+  it("有効なワーカーを一覧表示する", async () => {
+    // スキーマが non-null 化された（#32）ので必須項目は常に揃う。
     fetchWorkersMock.mockResolvedValue([
       { id: "W1", displayName: "山田", nameKana: "やまだ" },
-      { id: null, displayName: "壊れ", nameKana: null }, // id 欠け → 除外
-      { id: "W2", displayName: null, nameKana: "すずき" }, // displayName 欠け → 除外
+      { id: "W2", displayName: "鈴木", nameKana: "すずき" },
     ]);
     render(await Page());
     expect(screen.getByText("山田")).toBeInTheDocument();
-    expect(screen.queryByText("壊れ")).toBeNull();
-    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(screen.getByText("鈴木")).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(2);
   });
 
   it("取得失敗時はエラーを表示する", async () => {

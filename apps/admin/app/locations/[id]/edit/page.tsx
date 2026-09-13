@@ -14,7 +14,7 @@ export default async function EditLocationPage({
 }) {
   const employee = await requireEmployee();
   const { id } = await params;
-  const location = (await fetchAdminLocations()).find((l) => l?.id === id);
+  const location = (await fetchAdminLocations()).find((l) => l.id === id);
   if (!location) notFound();
 
   return (
@@ -26,11 +26,11 @@ export default async function EditLocationPage({
         submitLabel="更新"
         showActive
         values={{
-          name: location.name ?? undefined,
-          timeZone: location.timeZone ?? undefined,
-          businessDayCutoffHour: location.businessDayCutoffHour ?? 0,
+          name: location.name,
+          timeZone: location.timeZone,
+          businessDayCutoffHour: location.businessDayCutoffHour,
           country: location.country ?? undefined,
-          active: location.active ?? true,
+          active: location.active,
         }}
       />
     </main>

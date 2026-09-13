@@ -19,7 +19,7 @@ export default async function EditWorkerPage({
   const { location } = await searchParams;
   if (!location) notFound();
 
-  const worker = (await fetchWorkersByLocation(location)).find((w) => w?.id === id);
+  const worker = (await fetchWorkersByLocation(location)).find((w) => w.id === id);
   if (!worker) notFound();
 
   return (
@@ -31,10 +31,10 @@ export default async function EditWorkerPage({
         submitLabel="更新"
         showActive
         values={{
-          name: worker.name ?? undefined,
-          displayName: worker.displayName ?? undefined,
-          nameKana: worker.nameKana ?? undefined,
-          active: worker.active ?? true,
+          name: worker.name,
+          displayName: worker.displayName,
+          nameKana: worker.nameKana,
+          active: worker.active,
         }}
       />
     </main>
