@@ -82,12 +82,34 @@ export const PunchesByDateQuery = graphql(`
   query PunchesByDate($locationId: String!, $businessDate: String) {
     punchesByDate(locationId: $locationId, businessDate: $businessDate) {
       id
+      workerId
       type
       occurredAt
       timeZone
       worker {
         displayName
       }
+    }
+  }
+`);
+
+export const CorrectPunchMutation = graphql(`
+  mutation CorrectPunch(
+    $workerId: String!
+    $id: String!
+    $occurredAt: String!
+    $input: CorrectPunchInput!
+  ) {
+    correctPunch(workerId: $workerId, id: $id, occurredAt: $occurredAt, input: $input) {
+      id
+    }
+  }
+`);
+
+export const CreateManualPunchMutation = graphql(`
+  mutation CreateManualPunch($input: ManualPunchInput!) {
+    createManualPunch(input: $input) {
+      id
     }
   }
 `);

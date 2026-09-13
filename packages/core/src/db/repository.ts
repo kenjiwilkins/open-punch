@@ -3,8 +3,9 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
-import type { Location, PunchEvent, Worker } from "../domain/types";
+import type { Location, PunchAudit, PunchEvent, Worker } from "../domain/types";
 import { GSI1, GSI2, PK, SK } from "./keys";
 
 export interface RepoContext {
@@ -89,12 +90,22 @@ function fromPunchItem(item: Item): PunchEvent {
     occurredAt: item.occurredAt as string,
     timeZone: item.timeZone as string,
     businessDate: item.businessDate as string,
-    source: item.source as "KIOSK",
+    source: item.source as PunchEvent["source"],
     deviceId: item.deviceId as string | undefined,
     corrected: item.corrected as boolean,
     correctedBy: item.correctedBy as string | undefined,
     note: item.note as string | undefined,
     createdAt: item.createdAt as string,
+  };
+}
+
+/** PunchAudit は append-only。読み戻し（get/list）は #20 の範囲では不要。 */
+function toPunchAuditItem(audit: PunchAudit): Item {
+  return {
+    PK: PK.worker(audit.workerId),
+    SK: SK.audit(audit.createdAt, audit.id),
+    entityType: "PUNCH_AUDIT",
+    ...audit,
   };
 }
 
@@ -187,6 +198,65 @@ function makePunchRepo({ doc, tableName }: RepoContext) {
         }),
       );
       return (res.Items ?? []).map(fromPunchItem);
+    },
+    /** 補正対象を一意に取得する（SK に occurredAt を含むため id だけでは引けない）。 */
+    async get(workerId: string, occurredAt: string, id: string): Promise<PunchEvent | undefined> {
+      const res = await doc.send(
+        new GetCommand({
+          TableName: tableName,
+          Key: { PK: PK.worker(workerId), SK: SK.punch(occurredAt, id) },
+        }),
+      );
+      return res.Item ? fromPunchItem(res.Item) : undefined;
+    },
+    /**
+     * 打刻補正（鉄則8）: 元イベントの更新と PunchAudit の追加を TransactWriteItems で原子的に書く。
+     * occurredAt を変更する場合は SK が変わるため Delete(旧) + Put(新) + Put(audit) の3件、
+     * occurredAt が同じ（type のみ補正）場合は同一キーを2度対象にできない（DynamoDB の制約）ため
+     * Put(新、上書き) + Put(audit) の2件にする。
+     */
+    async correctInTransaction(params: {
+      before: PunchEvent;
+      after: PunchEvent;
+      audit: PunchAudit;
+    }): Promise<PunchEvent> {
+      const { before, after, audit } = params;
+      const keyChanged = before.occurredAt !== after.occurredAt;
+      await doc.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            ...(keyChanged
+              ? [
+                  {
+                    Delete: {
+                      TableName: tableName,
+                      Key: { PK: PK.worker(before.workerId), SK: SK.punch(before.occurredAt, before.id) },
+                    },
+                  },
+                ]
+              : []),
+            { Put: { TableName: tableName, Item: toPunchItem(after) } },
+            { Put: { TableName: tableName, Item: toPunchAuditItem(audit) } },
+          ],
+        }),
+      );
+      return after;
+    },
+    /** 手動打刻追加（鉄則8）: 新規 PunchEvent と PunchAudit（MANUAL_ADD）を原子的に書く。 */
+    async createManualInTransaction(params: {
+      punch: PunchEvent;
+      audit: PunchAudit;
+    }): Promise<PunchEvent> {
+      const { punch, audit } = params;
+      await doc.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            { Put: { TableName: tableName, Item: toPunchItem(punch) } },
+            { Put: { TableName: tableName, Item: toPunchAuditItem(audit) } },
+          ],
+        }),
+      );
+      return punch;
     },
   };
 }

@@ -4,12 +4,16 @@ const {
   createLocationMock,
   createWorkerMock,
   updateWorkerMock,
+  correctPunchMock,
+  createManualPunchMock,
   revalidateMock,
   redirectMock,
 } = vi.hoisted(() => ({
   createLocationMock: vi.fn(),
   createWorkerMock: vi.fn(),
   updateWorkerMock: vi.fn(),
+  correctPunchMock: vi.fn(),
+  createManualPunchMock: vi.fn(),
   revalidateMock: vi.fn(),
   redirectMock: vi.fn((url: string): never => {
     throw new Error(`REDIRECT:${url}`);
@@ -22,11 +26,19 @@ vi.mock("./graphql-client", () => ({
   updateLocation: vi.fn(),
   updateWorker: updateWorkerMock,
   deactivateWorker: vi.fn(),
+  correctPunch: correctPunchMock,
+  createManualPunch: createManualPunchMock,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidateMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-import { createLocationAction, createWorkerAction, updateWorkerAction } from "./crud-actions";
+import {
+  correctPunchAction,
+  createLocationAction,
+  createManualPunchAction,
+  createWorkerAction,
+  updateWorkerAction,
+} from "./crud-actions";
 
 afterEach(() => vi.clearAllMocks());
 
@@ -84,6 +96,61 @@ describe("crud-actions", () => {
       displayName: "山田T",
       nameKana: undefined,
       active: false,
+    });
+  });
+
+  it("correctPunchAction は複合キーを束ねて補正し当日一覧へ戻る", async () => {
+    correctPunchMock.mockResolvedValue({ id: "P1" });
+    await expect(
+      correctPunchAction(
+        "W1",
+        "P1",
+        "2026-08-25T00:01:00Z",
+        "L1",
+        {},
+        fd({ occurredAt: "2026-08-25T00:05:00Z", type: "CLOCK_OUT", note: "打刻漏れのため補正" }),
+      ),
+    ).rejects.toThrow("REDIRECT:/?location=L1");
+    expect(correctPunchMock).toHaveBeenCalledWith("W1", "P1", "2026-08-25T00:01:00Z", {
+      occurredAt: "2026-08-25T00:05:00Z",
+      type: "CLOCK_OUT",
+      note: "打刻漏れのため補正",
+    });
+  });
+
+  it("correctPunchAction は失敗時に BAD_USER_INPUT のメッセージを返す", async () => {
+    correctPunchMock.mockRejectedValue({ response: { errors: [{ message: "note: 必須です" }] } });
+    const r = await correctPunchAction(
+      "W1",
+      "P1",
+      "2026-08-25T00:01:00Z",
+      "L1",
+      {},
+      fd({ note: "" }),
+    );
+    expect(r).toEqual({ error: "note: 必須です" });
+    expect(revalidateMock).not.toHaveBeenCalled();
+  });
+
+  it("createManualPunchAction は locationId を束ねず打刻を作成し当日一覧へ戻る", async () => {
+    createManualPunchMock.mockResolvedValue({ id: "P2" });
+    await expect(
+      createManualPunchAction(
+        "L1",
+        {},
+        fd({
+          workerId: "W1",
+          type: "CLOCK_IN",
+          occurredAt: "2026-08-25T00:00:00Z",
+          note: "打刻漏れのため追加",
+        }),
+      ),
+    ).rejects.toThrow("REDIRECT:/?location=L1");
+    expect(createManualPunchMock).toHaveBeenCalledWith({
+      workerId: "W1",
+      type: "CLOCK_IN",
+      occurredAt: "2026-08-25T00:00:00Z",
+      note: "打刻漏れのため追加",
     });
   });
 });

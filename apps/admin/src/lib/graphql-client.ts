@@ -1,14 +1,18 @@
 import "server-only";
 import { GraphQLClient } from "graphql-request";
 import type {
+  CorrectPunchInput,
   LocationCreateInput,
   LocationUpdateInput,
+  ManualPunchInput,
   WorkerCreateInput,
   WorkerUpdateInput,
 } from "../gql/graphql";
 import {
   AdminLocationsQuery,
+  CorrectPunchMutation,
   CreateLocationMutation,
+  CreateManualPunchMutation,
   CreateWorkerMutation,
   DeactivateWorkerMutation,
   LocationsQuery,
@@ -87,4 +91,20 @@ export async function createLocation(input: LocationCreateInput) {
 export async function updateLocation(locationId: string, input: LocationUpdateInput) {
   const client = await createAdminGraphQLClient();
   return (await client.request(UpdateLocationMutation, { locationId, input })).updateLocation;
+}
+
+export async function correctPunch(
+  workerId: string,
+  id: string,
+  occurredAt: string,
+  input: CorrectPunchInput,
+) {
+  const client = await createAdminGraphQLClient();
+  return (await client.request(CorrectPunchMutation, { workerId, id, occurredAt, input }))
+    .correctPunch;
+}
+
+export async function createManualPunch(input: ManualPunchInput) {
+  const client = await createAdminGraphQLClient();
+  return (await client.request(CreateManualPunchMutation, { input })).createManualPunch;
 }

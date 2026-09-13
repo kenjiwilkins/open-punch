@@ -9,6 +9,7 @@ export interface LocationOption {
 
 export interface PunchRow {
   id: string;
+  workerId: string;
   type: "CLOCK_IN" | "CLOCK_OUT";
   occurredAt: string;
   timeZone: string;
@@ -48,33 +49,53 @@ export function DailyPunchesView({
         <p className="text-muted-foreground" role="status">
           拠点を選択してください。
         </p>
-      ) : punches.length === 0 ? (
-        <p className="text-muted-foreground" role="status">
-          本日の打刻はまだありません。
-        </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b text-sm text-muted-foreground">
-                <th className="py-2 pr-4 font-medium">時刻</th>
-                <th className="py-2 pr-4 font-medium">種別</th>
-                <th className="py-2 font-medium">名前</th>
-              </tr>
-            </thead>
-            <tbody>
-              {punches.map((p) => (
-                <tr key={p.id} className="border-b">
-                  <td className="py-2 pr-4 tabular-nums">
-                    {formatTimeInZone(p.occurredAt, p.timeZone)}
-                  </td>
-                  <td className="py-2 pr-4">{punchTypeLabel(p.type)}</td>
-                  <td className="py-2">{p.workerName}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {punches.length === 0 ? (
+            <p className="text-muted-foreground" role="status">
+              本日の打刻はまだありません。
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b text-sm text-muted-foreground">
+                    <th className="py-2 pr-4 font-medium">時刻</th>
+                    <th className="py-2 pr-4 font-medium">種別</th>
+                    <th className="py-2 pr-4 font-medium">名前</th>
+                    <th className="py-2 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {punches.map((p) => (
+                    <tr key={p.id} className="border-b">
+                      <td className="py-2 pr-4 tabular-nums">
+                        {formatTimeInZone(p.occurredAt, p.timeZone)}
+                      </td>
+                      <td className="py-2 pr-4">{punchTypeLabel(p.type)}</td>
+                      <td className="py-2 pr-4">{p.workerName}</td>
+                      <td className="py-2">
+                        <Link
+                          href={`/punches/correct?workerId=${p.workerId}&id=${p.id}&occurredAt=${encodeURIComponent(p.occurredAt)}&type=${p.type}&location=${selectedLocationId}&workerName=${encodeURIComponent(p.workerName)}`}
+                          className="text-primary underline underline-offset-4"
+                        >
+                          補正
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <Link
+            href={`/punches/manual?location=${selectedLocationId}`}
+            className="text-primary underline underline-offset-4"
+          >
+            打刻漏れを手動で追加
+          </Link>
+        </>
       )}
     </div>
   );

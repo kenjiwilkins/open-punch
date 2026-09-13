@@ -1,3 +1,9 @@
+input CorrectPunchInput {
+  note: String!
+  occurredAt: String
+  type: PunchType
+}
+
 type Employee {
   email: String!
   name: String!
@@ -33,8 +39,17 @@ input LocationUpdateInput {
   timeZone: String
 }
 
+input ManualPunchInput {
+  note: String!
+  occurredAt: String!
+  type: PunchType!
+  workerId: String!
+}
+
 type Mutation {
+  correctPunch(id: String!, input: CorrectPunchInput!, occurredAt: String!, workerId: String!): PunchEvent!
   createLocation(input: LocationCreateInput!): Location!
+  createManualPunch(input: ManualPunchInput!): PunchEvent!
   createWorker(input: WorkerCreateInput!): Worker!
   deactivateWorker(workerId: String!): Worker!
   punch(type: PunchType!, workerId: String!): PunchEvent!
