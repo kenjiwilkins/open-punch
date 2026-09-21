@@ -39,6 +39,7 @@ describe("admin ホーム（当日一覧）", () => {
     fetchPunchesByDateMock.mockResolvedValue([
       {
         id: "P1",
+        workerId: "W1",
         type: "CLOCK_IN",
         occurredAt: "2026-08-25T00:30:00Z",
         timeZone: "Asia/Tokyo",

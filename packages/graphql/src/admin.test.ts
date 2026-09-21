@@ -1,4 +1,4 @@
-import type { Location, Repositories, Worker } from "@open-punch/core";
+import type { Location, PunchAudit, PunchEvent, Repositories, Worker } from "@open-punch/core";
 import { describe, expect, it } from "vitest";
 import { createYogaHandler } from "./yoga";
 
@@ -27,11 +27,29 @@ const worker: Worker = {
   updatedAt: ISO,
 };
 
-function makeRepos(opts: { workers?: Worker[]; locations?: Location[] } = {}) {
+const punch: PunchEvent = {
+  id: "01P",
+  workerId: "W1",
+  locationId: "L1",
+  type: "CLOCK_IN",
+  occurredAt: "2026-08-25T00:01:00Z",
+  timeZone: "Asia/Tokyo",
+  businessDate: "2026-08-25",
+  source: "KIOSK",
+  corrected: false,
+  createdAt: "2026-08-25T00:01:00Z",
+};
+
+function makeRepos(
+  opts: { workers?: Worker[]; locations?: Location[]; punches?: PunchEvent[] } = {},
+) {
   const workerPuts: Worker[] = [];
   const locationPuts: Location[] = [];
+  const corrections: { before: PunchEvent; after: PunchEvent; audit: PunchAudit }[] = [];
+  const manualPunches: { punch: PunchEvent; audit: PunchAudit }[] = [];
   const workers = opts.workers ?? [worker];
   const locations = opts.locations ?? [location];
+  const punches = opts.punches ?? [punch];
   const repos = {
     workers: {
       get: async (id: string) => workers.find((w) => w.workerId === id),
@@ -50,20 +68,31 @@ function makeRepos(opts: { workers?: Worker[]; locations?: Location[] } = {}) {
       },
       list: async () => locations,
     },
-    punches: {},
+    punches: {
+      get: async (workerId: string, occurredAt: string, id: string) =>
+        punches.find((p) => p.workerId === workerId && p.occurredAt === occurredAt && p.id === id),
+      correctInTransaction: async (params: { before: PunchEvent; after: PunchEvent; audit: PunchAudit }) => {
+        corrections.push(params);
+        return params.after;
+      },
+      createManualInTransaction: async (params: { punch: PunchEvent; audit: PunchAudit }) => {
+        manualPunches.push(params);
+        return params.punch;
+      },
+    },
   } as unknown as Repositories;
-  return { repos, workerPuts, locationPuts };
+  return { repos, workerPuts, locationPuts, corrections, manualPunches };
 }
 
 function makeYoga(opts: Parameters<typeof makeRepos>[0] = {}) {
-  const { repos, workerPuts, locationPuts } = makeRepos(opts);
+  const { repos, workerPuts, locationPuts, corrections, manualPunches } = makeRepos(opts);
   const yoga = createYogaHandler({
     repos,
     expectedApiKey: "k",
     verifyJwt: async () => ({ sub: "s", email: "e@example.com" }),
     now: () => NOW,
   });
-  return { yoga, workerPuts, locationPuts };
+  return { yoga, workerPuts, locationPuts, corrections, manualPunches };
 }
 
 type Vars = Record<string, unknown>;
@@ -194,5 +223,115 @@ describe("Location CRUD", () => {
     await call(yoga, "cognito", UPDATE_LOCATION, { id: "L1", input: { name: "渋谷本店" } });
     expect(locationPuts[0]?.name).toBe("渋谷本店");
     expect(locationPuts[0]?.country).toBe("JP"); // 既存を保持
+  });
+});
+
+const CORRECT_PUNCH = `mutation($workerId: String!, $id: String!, $occurredAt: String!, $input: CorrectPunchInput!){
+  correctPunch(workerId:$workerId, id:$id, occurredAt:$occurredAt, input:$input){
+    id occurredAt type corrected businessDate note
+  }
+}`;
+const CREATE_MANUAL_PUNCH = `mutation($input: ManualPunchInput!){
+  createManualPunch(input:$input){ id workerId type occurredAt businessDate corrected note }
+}`;
+
+describe("correctPunch / createManualPunch（鉄則8: PunchAudit を TransactWriteItems で原子的に）", () => {
+  it("correctPunch は cognito で occurredAt/type を補正し、PunchAudit(before/after) を同一トランザクションで残す", async () => {
+    const { yoga, corrections } = makeYoga();
+    const r = await call(yoga, "cognito", CORRECT_PUNCH, {
+      workerId: "W1",
+      id: "01P",
+      occurredAt: "2026-08-25T00:01:00Z",
+      input: { occurredAt: "2026-08-25T00:05:00Z", type: "CLOCK_IN", note: "打刻漏れのため補正" },
+    });
+    expect(r.errors).toBeUndefined();
+    expect(r.data.correctPunch.occurredAt).toBe("2026-08-25T00:05:00Z");
+    expect(r.data.correctPunch.corrected).toBe(true);
+    expect(r.data.correctPunch.note).toBe("打刻漏れのため補正");
+
+    expect(corrections).toHaveLength(1);
+    expect(corrections[0]!.before.occurredAt).toBe("2026-08-25T00:01:00Z"); // 元イベントは不変
+    expect(corrections[0]!.after.occurredAt).toBe("2026-08-25T00:05:00Z");
+    expect(corrections[0]!.audit.action).toBe("CORRECT");
+    expect(corrections[0]!.audit.before).toEqual({ occurredAt: "2026-08-25T00:01:00Z", type: "CLOCK_IN" });
+    expect(corrections[0]!.audit.after).toEqual({ occurredAt: "2026-08-25T00:05:00Z", type: "CLOCK_IN" });
+    expect(corrections[0]!.audit.performedBy).toBe("s");
+    expect(corrections[0]!.audit.note).toBe("打刻漏れのため補正");
+  });
+
+  it("correctPunch は apiKey では FORBIDDEN", async () => {
+    const { yoga, corrections } = makeYoga();
+    const r = await call(yoga, "apiKey", CORRECT_PUNCH, {
+      workerId: "W1",
+      id: "01P",
+      occurredAt: "2026-08-25T00:01:00Z",
+      input: { note: "x" },
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    expect(corrections).toHaveLength(0);
+  });
+
+  it("correctPunch は note なしでは BAD_USER_INPUT", async () => {
+    const { yoga } = makeYoga();
+    const r = await call(yoga, "cognito", CORRECT_PUNCH, {
+      workerId: "W1",
+      id: "01P",
+      occurredAt: "2026-08-25T00:01:00Z",
+      input: { note: "  " },
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
+  });
+
+  it("correctPunch は対象が見つからないと NOT_FOUND", async () => {
+    const { yoga } = makeYoga();
+    const r = await call(yoga, "cognito", CORRECT_PUNCH, {
+      workerId: "W1",
+      id: "NOPE",
+      occurredAt: "2026-08-25T00:01:00Z",
+      input: { note: "x" },
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+  });
+
+  it("createManualPunch は cognito で新規 PunchEvent(source=MANUAL) を作り、PunchAudit(MANUAL_ADD) を同一トランザクションで残す", async () => {
+    const { yoga, manualPunches } = makeYoga();
+    const r = await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "W1", type: "CLOCK_IN", occurredAt: "2026-08-25T00:00:00Z", note: "打刻漏れのため追加" },
+    });
+    expect(r.errors).toBeUndefined();
+    expect(r.data.createManualPunch.workerId).toBe("W1");
+    expect(r.data.createManualPunch.corrected).toBe(false);
+    expect(r.data.createManualPunch.businessDate).toBe("2026-08-25");
+
+    expect(manualPunches).toHaveLength(1);
+    expect(manualPunches[0]!.punch.source).toBe("MANUAL");
+    expect(manualPunches[0]!.audit.action).toBe("MANUAL_ADD");
+    expect(manualPunches[0]!.audit.before).toBeUndefined();
+    expect(manualPunches[0]!.audit.performedBy).toBe("s");
+  });
+
+  it("createManualPunch は apiKey では FORBIDDEN", async () => {
+    const { yoga, manualPunches } = makeYoga();
+    const r = await call(yoga, "apiKey", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "W1", type: "CLOCK_IN", occurredAt: "2026-08-25T00:00:00Z", note: "x" },
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    expect(manualPunches).toHaveLength(0);
+  });
+
+  it("createManualPunch は note なしでは BAD_USER_INPUT", async () => {
+    const { yoga } = makeYoga();
+    const r = await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "W1", type: "CLOCK_IN", occurredAt: "2026-08-25T00:00:00Z", note: "" },
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
+  });
+
+  it("createManualPunch は存在しない workerId で BAD_USER_INPUT", async () => {
+    const { yoga } = makeYoga();
+    const r = await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "NOPE", type: "CLOCK_IN", occurredAt: "2026-08-25T00:00:00Z", note: "x" },
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
   });
 });

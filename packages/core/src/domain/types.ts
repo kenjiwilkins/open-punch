@@ -76,10 +76,46 @@ export interface PunchEvent {
   timeZone: string;
   /** 拠点TZ基準の営業日 "YYYY-MM-DD"。打刻時に確定保存。 */
   businessDate: string;
-  source: "KIOSK";
+  /** KIOSK: アルバイトの打刻。MANUAL: 社員が createManualPunch で追加。 */
+  source: "KIOSK" | "MANUAL";
   deviceId?: string;
   corrected: boolean;
   correctedBy?: string;
   note?: string;
+  createdAt: string;
+}
+
+/** PunchAudit の補正種別。DELETE は将来の取り消し機能用に予約（MVP未実装）。 */
+export const PunchAuditAction = {
+  CORRECT: "CORRECT",
+  MANUAL_ADD: "MANUAL_ADD",
+} as const;
+export type PunchAuditAction = (typeof PunchAuditAction)[keyof typeof PunchAuditAction];
+
+/** PunchAudit の前後スナップショット。 */
+export interface PunchAuditSnapshot {
+  occurredAt: string;
+  type: PunchType;
+}
+
+/**
+ * 打刻補正・手動追加の監査履歴（append-only、鉄則8）。
+ * 対象 PunchEvent の更新（or 新規作成）と同一 TransactWriteItems で書く。
+ */
+export interface PunchAudit {
+  /** 監査レコード自身の ID（ULID）。SK の一意性に使う。 */
+  id: string;
+  /** 対象アルバイト（PunchEvent と同じ PK に紐づく）。 */
+  workerId: string;
+  action: PunchAuditAction;
+  /** 対象の PunchEvent ID（手動追加は新規作成した PunchEvent の ID）。 */
+  targetPunchId: string;
+  /** 変更前スナップショット（手動追加は元イベントが無いので undefined）。 */
+  before?: PunchAuditSnapshot;
+  after: PunchAuditSnapshot;
+  /** 実施した社員（Cognito sub）。 */
+  performedBy: string;
+  /** 理由（必須）。 */
+  note: string;
   createdAt: string;
 }

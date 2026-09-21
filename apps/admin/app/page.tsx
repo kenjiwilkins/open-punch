@@ -24,6 +24,7 @@ export default async function Page({
     const raw = await fetchPunchesByDate(selectedLocationId);
     punches = raw.map((p) => ({
       id: p.id,
+      workerId: p.workerId,
       type: p.type,
       occurredAt: p.occurredAt,
       timeZone: p.timeZone,

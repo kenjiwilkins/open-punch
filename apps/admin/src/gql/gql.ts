@@ -22,7 +22,9 @@ type Documents = {
     "\n  mutation DeactivateWorker($workerId: String!) {\n    deactivateWorker(workerId: $workerId) {\n      id\n      active\n    }\n  }\n": typeof types.DeactivateWorkerDocument,
     "\n  mutation CreateLocation($input: LocationCreateInput!) {\n    createLocation(input: $input) {\n      id\n    }\n  }\n": typeof types.CreateLocationDocument,
     "\n  mutation UpdateLocation($locationId: String!, $input: LocationUpdateInput!) {\n    updateLocation(locationId: $locationId, input: $input) {\n      id\n    }\n  }\n": typeof types.UpdateLocationDocument,
-    "\n  query PunchesByDate($locationId: String!, $businessDate: String) {\n    punchesByDate(locationId: $locationId, businessDate: $businessDate) {\n      id\n      type\n      occurredAt\n      timeZone\n      worker {\n        displayName\n      }\n    }\n  }\n": typeof types.PunchesByDateDocument,
+    "\n  query PunchesByDate($locationId: String!, $businessDate: String) {\n    punchesByDate(locationId: $locationId, businessDate: $businessDate) {\n      id\n      workerId\n      type\n      occurredAt\n      timeZone\n      worker {\n        displayName\n      }\n    }\n  }\n": typeof types.PunchesByDateDocument,
+    "\n  mutation CorrectPunch(\n    $workerId: String!\n    $id: String!\n    $occurredAt: String!\n    $input: CorrectPunchInput!\n  ) {\n    correctPunch(workerId: $workerId, id: $id, occurredAt: $occurredAt, input: $input) {\n      id\n    }\n  }\n": typeof types.CorrectPunchDocument,
+    "\n  mutation CreateManualPunch($input: ManualPunchInput!) {\n    createManualPunch(input: $input) {\n      id\n    }\n  }\n": typeof types.CreateManualPunchDocument,
 };
 const documents: Documents = {
     "\n  query Locations {\n    locations {\n      id\n      name\n      timeZone\n    }\n  }\n": types.LocationsDocument,
@@ -33,7 +35,9 @@ const documents: Documents = {
     "\n  mutation DeactivateWorker($workerId: String!) {\n    deactivateWorker(workerId: $workerId) {\n      id\n      active\n    }\n  }\n": types.DeactivateWorkerDocument,
     "\n  mutation CreateLocation($input: LocationCreateInput!) {\n    createLocation(input: $input) {\n      id\n    }\n  }\n": types.CreateLocationDocument,
     "\n  mutation UpdateLocation($locationId: String!, $input: LocationUpdateInput!) {\n    updateLocation(locationId: $locationId, input: $input) {\n      id\n    }\n  }\n": types.UpdateLocationDocument,
-    "\n  query PunchesByDate($locationId: String!, $businessDate: String) {\n    punchesByDate(locationId: $locationId, businessDate: $businessDate) {\n      id\n      type\n      occurredAt\n      timeZone\n      worker {\n        displayName\n      }\n    }\n  }\n": types.PunchesByDateDocument,
+    "\n  query PunchesByDate($locationId: String!, $businessDate: String) {\n    punchesByDate(locationId: $locationId, businessDate: $businessDate) {\n      id\n      workerId\n      type\n      occurredAt\n      timeZone\n      worker {\n        displayName\n      }\n    }\n  }\n": types.PunchesByDateDocument,
+    "\n  mutation CorrectPunch(\n    $workerId: String!\n    $id: String!\n    $occurredAt: String!\n    $input: CorrectPunchInput!\n  ) {\n    correctPunch(workerId: $workerId, id: $id, occurredAt: $occurredAt, input: $input) {\n      id\n    }\n  }\n": types.CorrectPunchDocument,
+    "\n  mutation CreateManualPunch($input: ManualPunchInput!) {\n    createManualPunch(input: $input) {\n      id\n    }\n  }\n": types.CreateManualPunchDocument,
 };
 
 /**
@@ -85,7 +89,15 @@ export function graphql(source: "\n  mutation UpdateLocation($locationId: String
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query PunchesByDate($locationId: String!, $businessDate: String) {\n    punchesByDate(locationId: $locationId, businessDate: $businessDate) {\n      id\n      type\n      occurredAt\n      timeZone\n      worker {\n        displayName\n      }\n    }\n  }\n"): (typeof documents)["\n  query PunchesByDate($locationId: String!, $businessDate: String) {\n    punchesByDate(locationId: $locationId, businessDate: $businessDate) {\n      id\n      type\n      occurredAt\n      timeZone\n      worker {\n        displayName\n      }\n    }\n  }\n"];
+export function graphql(source: "\n  query PunchesByDate($locationId: String!, $businessDate: String) {\n    punchesByDate(locationId: $locationId, businessDate: $businessDate) {\n      id\n      workerId\n      type\n      occurredAt\n      timeZone\n      worker {\n        displayName\n      }\n    }\n  }\n"): (typeof documents)["\n  query PunchesByDate($locationId: String!, $businessDate: String) {\n    punchesByDate(locationId: $locationId, businessDate: $businessDate) {\n      id\n      workerId\n      type\n      occurredAt\n      timeZone\n      worker {\n        displayName\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CorrectPunch(\n    $workerId: String!\n    $id: String!\n    $occurredAt: String!\n    $input: CorrectPunchInput!\n  ) {\n    correctPunch(workerId: $workerId, id: $id, occurredAt: $occurredAt, input: $input) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation CorrectPunch(\n    $workerId: String!\n    $id: String!\n    $occurredAt: String!\n    $input: CorrectPunchInput!\n  ) {\n    correctPunch(workerId: $workerId, id: $id, occurredAt: $occurredAt, input: $input) {\n      id\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateManualPunch($input: ManualPunchInput!) {\n    createManualPunch(input: $input) {\n      id\n    }\n  }\n"): (typeof documents)["\n  mutation CreateManualPunch($input: ManualPunchInput!) {\n    createManualPunch(input: $input) {\n      id\n    }\n  }\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};

@@ -20,6 +20,7 @@ describe("DailyPunchesView", () => {
     const punches: PunchRow[] = [
       {
         id: "P1",
+        workerId: "W1",
         type: "CLOCK_IN",
         occurredAt: "2026-08-25T00:30:00Z",
         timeZone: "Asia/Tokyo",
@@ -32,8 +33,31 @@ describe("DailyPunchesView", () => {
     expect(screen.getByText("山田")).toBeInTheDocument();
   });
 
-  it("選択済み・打刻なしはメッセージ", () => {
+  it("選択済み・打刻なしはメッセージと手動追加リンクを出す", () => {
     render(<DailyPunchesView locations={locations} selectedLocationId="L1" punches={[]} />);
     expect(screen.getByRole("status")).toHaveTextContent("打刻はまだありません");
+    expect(screen.getByRole("link", { name: "打刻漏れを手動で追加" })).toHaveAttribute(
+      "href",
+      "/punches/manual?location=L1",
+    );
+  });
+
+  it("打刻行に補正リンクを出す", () => {
+    const punches: PunchRow[] = [
+      {
+        id: "P1",
+        workerId: "W1",
+        type: "CLOCK_IN",
+        occurredAt: "2026-08-25T00:30:00Z",
+        timeZone: "Asia/Tokyo",
+        workerName: "山田",
+      },
+    ];
+    render(<DailyPunchesView locations={locations} selectedLocationId="L1" punches={punches} />);
+    const link = screen.getByRole("link", { name: "補正" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/punches/correct?workerId=W1&id=P1&occurredAt=2026-08-25T00%3A30%3A00Z&type=CLOCK_IN&location=L1&workerName=%E5%B1%B1%E7%94%B0",
+    );
   });
 });
