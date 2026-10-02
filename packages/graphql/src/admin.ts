@@ -1,4 +1,11 @@
-import { computeBusinessDate, type Location, type PunchAudit, type PunchEvent, type Worker } from "@open-punch/core";
+import {
+  computeBusinessDate,
+  widenBusinessDateRangeToOccurredAt,
+  type Location,
+  type PunchAudit,
+  type PunchEvent,
+  type Worker,
+} from "@open-punch/core";
 import { createGraphQLError } from "graphql-yoga";
 import { ulid } from "ulid";
 import { z } from "zod";
@@ -84,6 +91,10 @@ const manualPunchSchema = z.object({
   occurredAt: isoDateTime,
   note: reasonNote,
 });
+const businessDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD 形式で指定してください");
+const workerPunchesRangeSchema = z
+  .object({ workerId: nonEmpty, from: businessDate, to: businessDate })
+  .refine((v) => v.from <= v.to, { message: "from は to 以前の日付にしてください", path: ["from"] });
 
 // --- input types --------------------------------------------------------------
 
@@ -152,6 +163,39 @@ builder.queryFields((t) => ({
     resolve: async (_parent, args, ctx) => {
       requireEmployee(ctx);
       return ctx.repos.workers.listActiveByLocation(args.locationId);
+    },
+  }),
+
+  /**
+   * 個人の期間別打刻（#21・期間集計 + CSV エクスポートの元データ）。
+   * from/to は businessDate（拠点TZ・締め時刻で確定済みの営業日文字列）で指定する。
+   * PunchEvent の主キーは occurredAt(UTC) 基準なので、businessDate との最大ずれ
+   * （TZ・締め時刻）を吸収する余裕を持って Query し、businessDate の厳密一致で絞る。
+   */
+  workerPunches: t.field({
+    type: [PunchEventRef],
+    args: {
+      workerId: t.arg.string({ required: true }),
+      from: t.arg.string({ required: true }),
+      to: t.arg.string({ required: true }),
+    },
+    resolve: async (_parent, args, ctx) => {
+      requireEmployee(ctx);
+      const input = parseOrThrow(workerPunchesRangeSchema, {
+        workerId: args.workerId,
+        from: args.from,
+        to: args.to,
+      });
+      const { fromOccurredAt, toOccurredAt } = widenBusinessDateRangeToOccurredAt(
+        input.from,
+        input.to,
+      );
+      const punches = await ctx.repos.punches.listByWorkerRange(
+        input.workerId,
+        fromOccurredAt,
+        toOccurredAt,
+      );
+      return punches.filter((p) => p.businessDate >= input.from && p.businessDate <= input.to);
     },
   }),
 }));

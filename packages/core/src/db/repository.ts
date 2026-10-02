@@ -199,6 +199,31 @@ function makePunchRepo({ doc, tableName }: RepoContext) {
       );
       return (res.Items ?? []).map(fromPunchItem);
     },
+    /**
+     * 個人の期間別打刻（時刻昇順）。SK が `PUNCH#<occurredAt>#<id>` なので、
+     * occurredAt の範囲（両端を含む）を BETWEEN で絞り込める（#21・期間集計）。
+     */
+    async listByWorkerRange(
+      workerId: string,
+      fromOccurredAt: string,
+      toOccurredAt: string,
+    ): Promise<PunchEvent[]> {
+      const res = await doc.send(
+        new QueryCommand({
+          TableName: tableName,
+          KeyConditionExpression: "PK = :pk AND SK BETWEEN :from AND :to",
+          ExpressionAttributeValues: {
+            ":pk": PK.worker(workerId),
+            // 空文字は同じ occurredAt の任意の id より前、"￿" は任意の id より後に来るため
+            // 「occurredAt がこの範囲に入るアイテムすべて」を id によらず含められる。
+            ":from": `${SK.punchPrefix}${fromOccurredAt}#`,
+            ":to": `${SK.punchPrefix}${toOccurredAt}#￿`,
+          },
+          ScanIndexForward: true,
+        }),
+      );
+      return (res.Items ?? []).map(fromPunchItem);
+    },
     /** 補正対象を一意に取得する（SK に occurredAt を含むため id だけでは引けない）。 */
     async get(workerId: string, occurredAt: string, id: string): Promise<PunchEvent | undefined> {
       const res = await doc.send(

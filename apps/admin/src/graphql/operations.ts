@@ -113,3 +113,14 @@ export const CreateManualPunchMutation = graphql(`
     }
   }
 `);
+
+export const WorkerPunchesQuery = graphql(`
+  query WorkerPunches($workerId: String!, $from: String!, $to: String!) {
+    workerPunches(workerId: $workerId, from: $from, to: $to) {
+      id
+      type
+      occurredAt
+      businessDate
+    }
+  }
+`);

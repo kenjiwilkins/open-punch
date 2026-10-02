@@ -69,7 +69,7 @@ type WorkerDayStatus {
 | `workerStatus(workerId: ID!): WorkerDayStatus!` | 🔑 apiKey | 当日状態。kiosk のボタン出し分け |
 | `me: Employee!` | 🔒 cognito | ログイン中の社員自身 |
 | `punchesByDate(date: String!): [PunchEvent!]!` | 🔒 cognito | 指定日の全打刻（管理画面） |
-| `workerPunches(workerId: ID!, from: String!, to: String!): [PunchEvent!]!` | 🔒 cognito | 個人の期間別打刻 |
+| `workerPunches(workerId: String!, from: String!, to: String!): [PunchEvent!]!` | 🔒 cognito | 個人の期間別打刻（#21・期間集計＋CSVエクスポートの元データ） |
 | `allWorkers(includeInactive: Boolean): [Worker!]!` | 🔒 cognito | 退職者含む管理用一覧 |
 
 ### Mutation
@@ -93,6 +93,7 @@ input ManualPunchInput { workerId: ID!, type: PunchType!, occurredAt: String!, n
 - **`correctPunch` は `workerId`/`occurredAt` を引数に取る（#20 で確定・上記は当初案から変更）**。PunchEvent の DynamoDB キーは `PK=WORKER#<workerId>`, `SK=PUNCH#<occurredAt>#<id>`（[03-data-model.md](./03-data-model.md)）なので、`id` だけでは対象を一意に GetItem できない。管理画面はすでに一覧取得時点で対象行の `workerId`/`occurredAt` を持っているため、これを渡してもらう。
 - **`note` は補正・手動追加とも必須**（鉄則8・#20）。理由を残さない補正は許可しない。
 - `occurredAt` を変更する補正は SK が変わるため、内部的には旧アイテムの Delete + 新アイテムの Put + PunchAudit の Put（3件）を、`occurredAt` を変えない補正（`type` のみ）は Put（上書き）+ PunchAudit の Put（2件）を、それぞれ同一 `TransactWriteItems` で原子的に書く（同一キーを1トランザクション内で2度操作できない DynamoDB の制約のため分岐する）。
+- **`workerPunches` の `from`/`to` は businessDate（`YYYY-MM-DD`）で指定する（#21）**。PunchEvent の主キーは `occurredAt`（UTC）基準だが、`businessDate` は拠点TZ・締め時刻で計算されるため UTC の暦日とは前後1日ずれうる。実装は `from`/`to` を安全マージン（既定2日）だけ広げた `occurredAt` 範囲で `PK=WORKER#<id>` を Query し、`businessDate` の厳密一致でフィルタする（`packages/core/src/domain/aggregate.ts` の `widenBusinessDateRangeToOccurredAt`）。CLOCK_IN→CLOCK_OUT のペア畳み込み（中抜け・日跨ぎ・未退勤の扱い）も同ファイルの `aggregateWorkedPeriods` に閉じ込め、admin 側で集計・CSV化する。
 
 ## 重要な設計ポイント
 
