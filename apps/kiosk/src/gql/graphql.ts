@@ -148,6 +148,7 @@ export type Query = {
   health: Scalars['String']['output'];
   locations: Array<Location>;
   punchesByDate: Array<PunchEvent>;
+  workerPunches: Array<PunchEvent>;
   workerStatus: WorkerDayStatus;
   workers: Array<Worker>;
   workersByLocation: Array<Worker>;
@@ -157,6 +158,13 @@ export type Query = {
 export type QueryPunchesByDateArgs = {
   businessDate?: InputMaybe<Scalars['String']['input']>;
   locationId: Scalars['String']['input'];
+};
+
+
+export type QueryWorkerPunchesArgs = {
+  from: Scalars['String']['input'];
+  to: Scalars['String']['input'];
+  workerId: Scalars['String']['input'];
 };
 
 

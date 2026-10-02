@@ -19,6 +19,7 @@ import {
   PunchesByDateQuery,
   UpdateLocationMutation,
   UpdateWorkerMutation,
+  WorkerPunchesQuery,
   WorkersByLocationQuery,
 } from "../graphql/operations";
 import { getSessionToken } from "./auth/session";
@@ -107,4 +108,11 @@ export async function correctPunch(
 export async function createManualPunch(input: ManualPunchInput) {
   const client = await createAdminGraphQLClient();
   return (await client.request(CreateManualPunchMutation, { input })).createManualPunch;
+}
+
+/** 個人の期間別打刻（#21）。from/to は businessDate（YYYY-MM-DD）。 */
+export async function fetchWorkerPunches(workerId: string, from: string, to: string) {
+  const client = await createAdminGraphQLClient();
+  const data = await client.request(WorkerPunchesQuery, { workerId, from, to });
+  return data.workerPunches ?? [];
 }

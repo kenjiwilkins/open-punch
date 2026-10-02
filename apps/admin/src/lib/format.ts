@@ -13,3 +13,11 @@ export function formatTimeInZone(iso: string, timeZone: string): string {
 export function punchTypeLabel(type: "CLOCK_IN" | "CLOCK_OUT"): string {
   return type === "CLOCK_IN" ? "出勤" : "退勤";
 }
+
+/** ミリ秒を "H:mm" 表示にする（例: 8時間30分 → "8:30"）。負値は "0:00" に丸める。 */
+export function formatDurationHM(ms: number): string {
+  const totalMinutes = Math.max(0, Math.round(ms / 60_000));
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
+}

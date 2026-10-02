@@ -69,6 +69,9 @@ function makeRepos(
       list: async () => locations,
     },
     punches: {
+      // 実際の occurredAt 範囲での絞り込みは repository.test.ts でカバー済み。ここでは
+      // resolver 側の businessDate 厳密フィルタ・認可・バリデーションを検証する。
+      listByWorkerRange: async (workerId: string) => punches.filter((p) => p.workerId === workerId),
       get: async (workerId: string, occurredAt: string, id: string) =>
         punches.find((p) => p.workerId === workerId && p.occurredAt === occurredAt && p.id === id),
       correctInTransaction: async (params: { before: PunchEvent; after: PunchEvent; audit: PunchAudit }) => {
@@ -331,6 +334,60 @@ describe("correctPunch / createManualPunch（鉄則8: PunchAudit を TransactWri
     const { yoga } = makeYoga();
     const r = await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
       input: { workerId: "NOPE", type: "CLOCK_IN", occurredAt: "2026-08-25T00:00:00Z", note: "x" },
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
+  });
+});
+
+const WORKER_PUNCHES = `query($workerId: String!, $from: String!, $to: String!){
+  workerPunches(workerId:$workerId, from:$from, to:$to){ id occurredAt businessDate type }
+}`;
+
+describe("workerPunches（#21: 期間指定の個人別打刻）", () => {
+  const punches: PunchEvent[] = [
+    { ...punch, id: "P1", occurredAt: "2026-08-24T23:00:00Z", businessDate: "2026-08-24" }, // 範囲外
+    { ...punch, id: "P2", occurredAt: "2026-08-25T00:01:00Z", businessDate: "2026-08-25" },
+    { ...punch, id: "P3", occurredAt: "2026-08-26T00:01:00Z", businessDate: "2026-08-26" },
+    { ...punch, id: "P4", occurredAt: "2026-08-27T00:01:00Z", businessDate: "2026-08-27" }, // 範囲外
+  ];
+
+  it("cognito で from〜to の businessDate に厳密一致するものだけ返す", async () => {
+    const { yoga } = makeYoga({ punches });
+    const r = await call(yoga, "cognito", WORKER_PUNCHES, {
+      workerId: "W1",
+      from: "2026-08-25",
+      to: "2026-08-26",
+    });
+    expect(r.errors).toBeUndefined();
+    expect(r.data.workerPunches.map((p: { id: string }) => p.id)).toEqual(["P2", "P3"]);
+  });
+
+  it("apiKey では FORBIDDEN", async () => {
+    const { yoga } = makeYoga({ punches });
+    const r = await call(yoga, "apiKey", WORKER_PUNCHES, {
+      workerId: "W1",
+      from: "2026-08-25",
+      to: "2026-08-26",
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+  });
+
+  it("from が to より後だと BAD_USER_INPUT", async () => {
+    const { yoga } = makeYoga({ punches });
+    const r = await call(yoga, "cognito", WORKER_PUNCHES, {
+      workerId: "W1",
+      from: "2026-08-26",
+      to: "2026-08-25",
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
+  });
+
+  it("日付形式が不正だと BAD_USER_INPUT", async () => {
+    const { yoga } = makeYoga({ punches });
+    const r = await call(yoga, "cognito", WORKER_PUNCHES, {
+      workerId: "W1",
+      from: "2026/08/25",
+      to: "2026-08-26",
     });
     expect(r.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
   });

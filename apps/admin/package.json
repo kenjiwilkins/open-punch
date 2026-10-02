@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@graphql-typed-document-node/core": "catalog:",
+    "@open-punch/core": "workspace:*",
     "@open-punch/ui": "workspace:*",
     "aws-jwt-verify": "catalog:",
     "graphql": "catalog:",

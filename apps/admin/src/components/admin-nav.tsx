@@ -14,6 +14,9 @@ export function AdminNav({ email }: { email: string }) {
         <Link href="/workers" className="hover:underline">
           アルバイト
         </Link>
+        <Link href="/reports" className="hover:underline">
+          集計
+        </Link>
       </nav>
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <span>{email}</span>

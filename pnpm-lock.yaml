@@ -134,6 +134,9 @@ importers:
       '@graphql-typed-document-node/core':
         specifier: 'catalog:'
         version: 3.2.0(graphql@16.14.2)
+      '@open-punch/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@open-punch/ui':
         specifier: workspace:*
         version: link:../../packages/ui

@@ -79,6 +79,7 @@ type Query {
   health: String!
   locations: [Location!]!
   punchesByDate(businessDate: String, locationId: String!): [PunchEvent!]!
+  workerPunches(from: String!, to: String!, workerId: String!): [PunchEvent!]!
   workerStatus(workerId: String!): WorkerDayStatus!
   workers(locationId: String!): [Worker!]!
   workersByLocation(locationId: String!): [Worker!]!

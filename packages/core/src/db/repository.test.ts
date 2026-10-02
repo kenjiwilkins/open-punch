@@ -164,6 +164,17 @@ describe("punches", () => {
     expect(input.ExpressionAttributeValues![":pk"]).toBe("LOCATION#L1#2026-08-25");
   });
 
+  it("listByWorkerRange は PK=WORKER#id と SK の BETWEEN で範囲 Query する（id によらず occurredAt 全体を含む）", async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    await repos.punches.listByWorkerRange("W1", "2026-08-23T00:00:00.000Z", "2026-08-29T23:59:59.999Z");
+    const input = ddbMock.commandCalls(QueryCommand)[0]!.args[0].input;
+    expect(input.IndexName).toBeUndefined(); // 主テーブル（GSI不要）
+    expect(input.ExpressionAttributeValues![":pk"]).toBe("WORKER#W1");
+    expect(input.ExpressionAttributeValues![":from"]).toBe("PUNCH#2026-08-23T00:00:00.000Z#");
+    expect(input.ExpressionAttributeValues![":to"]).toBe("PUNCH#2026-08-29T23:59:59.999Z#￿");
+    expect(input.ScanIndexForward).toBe(true);
+  });
+
   it("get は PK/SK(occurredAt+id) で1件取得する", async () => {
     ddbMock.on(GetCommand).resolves({ Item: { ...punch, PK: "WORKER#W1", SK: "PUNCH#2026-08-25T00:01:00Z#01K" } });
     const got = await repos.punches.get("W1", "2026-08-25T00:01:00Z", "01K");
