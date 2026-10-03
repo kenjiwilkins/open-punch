@@ -62,6 +62,61 @@ describe("CSV エクスポート Route Handler", () => {
     ]);
   });
 
+  it("豪州の30分刻みTZ（Adelaide +9:30）で時刻を出力する", async () => {
+    requireEmployeeMock.mockResolvedValue({ sub: "s", email: "e@example.com" });
+    fetchWorkerPunchesMock.mockResolvedValue([
+      { id: "1", type: "CLOCK_IN", occurredAt: "2026-08-25T00:00:00Z", businessDate: "2026-08-25" },
+      { id: "2", type: "CLOCK_OUT", occurredAt: "2026-08-25T08:00:00Z", businessDate: "2026-08-25" },
+    ]);
+    const csv = await readCsv(
+      await GET(req("workerId=W1&from=2026-08-25&to=2026-08-25&timeZone=Australia%2FAdelaide")),
+    );
+    expect(csv.lines[1]).toBe("2026-08-25,09:30,17:30,8:00");
+  });
+
+  it("日またぎのシフトは CLOCK_IN の businessDate の行に出る（実時間で計算）", async () => {
+    requireEmployeeMock.mockResolvedValue({ sub: "s", email: "e@example.com" });
+    fetchWorkerPunchesMock.mockResolvedValue([
+      { id: "1", type: "CLOCK_IN", occurredAt: "2026-08-25T14:00:00Z", businessDate: "2026-08-25" }, // 23:00 JST
+      { id: "2", type: "CLOCK_OUT", occurredAt: "2026-08-25T17:30:00Z", businessDate: "2026-08-26" }, // 02:30 JST
+    ]);
+    const csv = await readCsv(
+      await GET(req("workerId=W1&from=2026-08-25&to=2026-08-26&timeZone=Asia%2FTokyo")),
+    );
+    expect(csv.lines).toEqual([
+      "日付,出勤,退勤,稼働時間",
+      "2026-08-25,23:00,02:30,3:30",
+      "合計,,,3:30",
+    ]);
+  });
+
+  it("打刻が無い期間はヘッダと 0:00 の合計行だけを出す", async () => {
+    requireEmployeeMock.mockResolvedValue({ sub: "s", email: "e@example.com" });
+    fetchWorkerPunchesMock.mockResolvedValue([]);
+    const csv = await readCsv(await GET(req("workerId=W1&from=2026-08-25&to=2026-08-25")));
+    expect(csv.lines).toEqual(["日付,出勤,退勤,稼働時間", "合計,,,0:00"]);
+  });
+
+  it("ファイル名に workerId と期間が入る", async () => {
+    requireEmployeeMock.mockResolvedValue({ sub: "s", email: "e@example.com" });
+    fetchWorkerPunchesMock.mockResolvedValue([]);
+    const res = await GET(req("workerId=01ABC&from=2026-08-01&to=2026-08-31"));
+    expect(res.headers.get("content-disposition")).toBe(
+      'attachment; filename="worker-punches-01ABC-2026-08-01_2026-08-31.csv"',
+    );
+  });
+
+  it.each([
+    ["timeZone が不正", "workerId=W1&from=2026-08-25&to=2026-08-25&timeZone=Not%2FAZone"],
+    ["日付形式が不正", "workerId=W1&from=2026%2F08%2F25&to=2026-08-25"],
+    ["workerId に引用符（ヘッダ注入）", "workerId=W1%22%0D%0AX-Evil%3A1&from=2026-08-25&to=2026-08-25"],
+  ])("%s は 400 で、データを引かない", async (_label, qs) => {
+    requireEmployeeMock.mockResolvedValue({ sub: "s", email: "e@example.com" });
+    const res = await GET(req(qs));
+    expect(res.status).toBe(400);
+    expect(fetchWorkerPunchesMock).not.toHaveBeenCalled();
+  });
+
   it("必須パラメータが欠けると 400", async () => {
     requireEmployeeMock.mockResolvedValue({ sub: "s", email: "e@example.com" });
     const res = await GET(req("workerId=W1"));
