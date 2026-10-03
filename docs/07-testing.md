@@ -51,7 +51,7 @@ DynamoDB は **aws-sdk-client-mock** でモックし、実 AWS なしで回す�
 | --- | --- | --- | --- |
 | 1 | apiKey は3操作だけ・cognito 専用は拒否 | ✅ | `graphql/src/builder.test.ts`（`requireKiosk`/`requireEmployee` 全分岐）, `resolvers.test.ts`（cognito で kiosk 操作が FORBIDDEN） |
 | 2 | `punch` はサーバー時刻を採用 | ✅ | `graphql/src/resolvers.test.ts`（occurredAt=サーバー時刻・引数に時刻を取らない） |
-| 3 | 補正で PunchAudit を原子的に append | ⏳ M2/M3 | 補正機能未実装 |
+| 3 | 補正・手動打刻で PunchAudit を原子的に append | ✅ M4 | `core/src/db/punch-audit.integrity.test.ts`（全か無か・同一キー禁止・失敗時ロールバック・append-only）, `core/src/db/repository.test.ts`（TransactItems の構成）, `graphql/src/admin.test.ts`（監査の中身・businessDate 再算出・元イベント不変・失敗時にエラー） |
 | 4 | inactive はキオスク一覧に出ない（GSI1 スパース） | ✅ | `core/src/db/repository.test.ts` |
 | 5 | 中抜け（出勤→退勤→再出勤）で `WORKING` | ✅ | `core/src/domain/status.test.ts` |
 | 6 | 入力検証（zod）で不正 `type`/欠損を拒否 | ⏳ | GraphQL enum で `type` は担保。zod での明示検証は今後 |
@@ -66,6 +66,14 @@ DynamoDB は **aws-sdk-client-mock** でモックし、実 AWS なしで回す�
   - 当日一覧: `daily-punches-view.test.tsx`（拠点TZ表示）＋ ホーム統合。IANA TZ は `format.test.ts`（JST=+9 / 豪州 Adelaide=+9:30）。
   - CRUD フォーム: `location-form`/`worker-form`（描画・送信で FormData・`BAD_USER_INPUT` 表示）、`crud-actions`（入力マッピング・エラー）、拠点/アルバイトページ統合（一覧・編集・退職）。
 - GraphQL 呼び出しは全てモック、E2E は行わない（方針通り）。
+
+## M4 のテスト状況（補正・集計・CSV）
+
+- **補正・手動打刻の整合性**: DynamoDB の `TransactWriteItems` の意味論（全か無か／同一アイテムを1トランザクションで2度操作できない）を再現したインメモリのフェイクテーブルで、結果としてテーブルがどうなるかを検証する（`punch-audit.integrity.test.ts`）。トランザクション失敗時に元イベントが不変で、監査・新イベントのどちらも書かれないことを含む。
+- **PunchAudit の中身**: `before`/`after`/`performedBy`/`note`/`createdAt`/`targetPunchId`、`note` の trim、`businessDate` を拠点TZ・締め時刻で再算出すること、元イベントを書き換えないこと（`admin.test.ts`）。
+- **期間集計**（`core/src/domain/aggregate.test.ts`）: 出勤/退勤ペア・中抜け・日跨ぎ（CLOCK_IN の businessDate に計上）・未退勤・連続 CLOCK_IN/CLOCK_OUT・夏時間をまたぐ夜勤（実経過時間）・1か月分の合計一致。
+- **CSV**（`admin/src/lib/csv.test.ts`, `admin/app/api/reports/worker-punches/route.test.ts`）: UTF-8 BOM（生バイト EF BB BF）・CRLF・RFC 4180 エスケープ・拠点TZ（豪州 30 分刻み含む）・未退勤・不正な入力（timeZone・日付・workerId）の 400。
+- 実 DynamoDB との疎通（実際のトランザクション挙動）は CI 外。`sst deploy` 後にオーナー側で確認する。
 
 ## カバレッジ目標
 

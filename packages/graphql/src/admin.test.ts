@@ -41,7 +41,13 @@ const punch: PunchEvent = {
 };
 
 function makeRepos(
-  opts: { workers?: Worker[]; locations?: Location[]; punches?: PunchEvent[] } = {},
+  opts: {
+    workers?: Worker[];
+    locations?: Location[];
+    punches?: PunchEvent[];
+    /** true なら補正・手動追加のトランザクションが失敗する（ロールバック＝何も書かれない想定）。 */
+    failTransaction?: boolean;
+  } = {},
 ) {
   const workerPuts: Worker[] = [];
   const locationPuts: Location[] = [];
@@ -75,10 +81,12 @@ function makeRepos(
       get: async (workerId: string, occurredAt: string, id: string) =>
         punches.find((p) => p.workerId === workerId && p.occurredAt === occurredAt && p.id === id),
       correctInTransaction: async (params: { before: PunchEvent; after: PunchEvent; audit: PunchAudit }) => {
+        if (opts.failTransaction) throw new Error("TransactionCanceledException");
         corrections.push(params);
         return params.after;
       },
       createManualInTransaction: async (params: { punch: PunchEvent; audit: PunchAudit }) => {
+        if (opts.failTransaction) throw new Error("TransactionCanceledException");
         manualPunches.push(params);
         return params.punch;
       },
@@ -390,5 +398,166 @@ describe("workerPunches（#21: 期間指定の個人別打刻）", () => {
       to: "2026-08-26",
     });
     expect(r.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
+  });
+});
+
+describe("PunchAudit の記録内容・整合性（#22・鉄則8）", () => {
+  const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
+  const correctVars = (input: Record<string, unknown>) => ({
+    workerId: "W1",
+    id: "01P",
+    occurredAt: "2026-08-25T00:01:00Z",
+    input,
+  });
+
+  it("補正: 監査に id(ULID)/workerId/targetPunchId/before/after/performedBy/note/createdAt が揃い、note は trim される", async () => {
+    const { yoga, corrections } = makeYoga();
+    await call(yoga, "cognito", CORRECT_PUNCH, correctVars({ occurredAt: "2026-08-25T00:05:00Z", note: "  打刻漏れのため補正  " }));
+
+    const a = corrections[0]!.audit;
+    expect(a.id).toMatch(ULID);
+    expect(a).toMatchObject({
+      workerId: "W1",
+      action: "CORRECT",
+      targetPunchId: "01P",
+      before: { occurredAt: "2026-08-25T00:01:00Z", type: "CLOCK_IN" },
+      after: { occurredAt: "2026-08-25T00:05:00Z", type: "CLOCK_IN" },
+      performedBy: "s",
+      note: "打刻漏れのため補正",
+      createdAt: NOW.toISOString(),
+    });
+    // 補正後イベントにも実施者と理由が残る
+    expect(corrections[0]!.after).toMatchObject({ corrected: true, correctedBy: "s", note: "打刻漏れのため補正" });
+  });
+
+  it("補正: type だけ変える場合 occurredAt・businessDate は維持され、監査の before/after は type だけが違う", async () => {
+    const { yoga, corrections } = makeYoga();
+    await call(yoga, "cognito", CORRECT_PUNCH, correctVars({ type: "CLOCK_OUT", note: "押し間違い" }));
+
+    const { before, after, audit } = corrections[0]!;
+    expect(after.occurredAt).toBe(before.occurredAt);
+    expect(after.businessDate).toBe(before.businessDate);
+    expect(audit.before).toEqual({ occurredAt: before.occurredAt, type: "CLOCK_IN" });
+    expect(audit.after).toEqual({ occurredAt: before.occurredAt, type: "CLOCK_OUT" });
+  });
+
+  it("補正: 日付が変わる補正は拠点TZで businessDate を再算出する（元の値を引きずらない）", async () => {
+    const { yoga, corrections } = makeYoga();
+    // 2026-08-25T15:30Z = 08-26 00:30 JST
+    await call(yoga, "cognito", CORRECT_PUNCH, correctVars({ occurredAt: "2026-08-25T15:30:00Z", note: "日付誤り" }));
+    expect(corrections[0]!.after.businessDate).toBe("2026-08-26");
+  });
+
+  it("補正: 拠点の締め時刻(cutoff=5)を考慮して businessDate を再算出する", async () => {
+    const { yoga, corrections } = makeYoga({ locations: [{ ...location, businessDayCutoffHour: 5 }] });
+    // 2026-08-26T19:00Z = 08-27 04:00 JST（締め前なので 08-26 扱い）。元の businessDate(08-25) とも
+    // 暦日(08-27)とも異なる値になるので、締め時刻を無視した実装・再算出しない実装のどちらも検出できる。
+    await call(yoga, "cognito", CORRECT_PUNCH, correctVars({ occurredAt: "2026-08-26T19:00:00Z", note: "夜勤の退勤" }));
+    expect(corrections[0]!.after.businessDate).toBe("2026-08-26");
+  });
+
+  it("補正: 元イベントは書き換えない（before は元の値のまま。id/workerId/locationId/source/createdAt も保持）", async () => {
+    const frozen = Object.freeze({ ...punch });
+    const { yoga, corrections } = makeYoga({ punches: [frozen] });
+    const r = await call(yoga, "cognito", CORRECT_PUNCH, correctVars({ occurredAt: "2026-08-25T00:05:00Z", note: "x" }));
+
+    expect(r.errors).toBeUndefined(); // frozen を書き換えようとすれば strict mode で例外になる
+    expect(corrections[0]!.before).toEqual(punch);
+    expect(corrections[0]!.after).toMatchObject({
+      id: punch.id,
+      workerId: punch.workerId,
+      locationId: punch.locationId,
+      source: punch.source,
+      createdAt: punch.createdAt,
+      timeZone: punch.timeZone,
+    });
+  });
+
+  it("補正: トランザクションが失敗したらエラーを返し、何も書かれたことにならない（成功レスポンスを返さない）", async () => {
+    const { yoga, corrections } = makeYoga({ failTransaction: true });
+    const r = await call(yoga, "cognito", CORRECT_PUNCH, correctVars({ occurredAt: "2026-08-25T00:05:00Z", note: "x" }));
+    expect(r.errors).toBeDefined();
+    expect(r.data).toBeNull();
+    expect(corrections).toHaveLength(0);
+  });
+
+  it("補正: 不正な occurredAt は BAD_USER_INPUT で、トランザクションに到達しない", async () => {
+    const { yoga, corrections } = makeYoga();
+    const r = await call(yoga, "cognito", CORRECT_PUNCH, correctVars({ occurredAt: "not-a-date", note: "x" }));
+    expect(r.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
+    expect(corrections).toHaveLength(0);
+  });
+
+  it("補正: 拠点が見つからない打刻は NOT_FOUND で、何も書かない", async () => {
+    const { yoga, corrections } = makeYoga({ locations: [] });
+    const r = await call(yoga, "cognito", CORRECT_PUNCH, correctVars({ note: "x" }));
+    expect(r.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+    expect(corrections).toHaveLength(0);
+  });
+
+  it("手動追加: 監査の after/performedBy/note/createdAt が正しく、targetPunchId は新規イベントの ID、before は無い", async () => {
+    const { yoga, manualPunches } = makeYoga();
+    await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "W1", type: "CLOCK_OUT", occurredAt: "2026-08-25T08:00:00Z", note: " 退勤の打刻漏れ " },
+    });
+
+    const { punch: p, audit: a } = manualPunches[0]!;
+    expect(p.id).toMatch(ULID);
+    expect(a.id).toMatch(ULID);
+    expect(a.id).not.toBe(p.id);
+    expect(a).toMatchObject({
+      workerId: "W1",
+      action: "MANUAL_ADD",
+      targetPunchId: p.id,
+      after: { occurredAt: "2026-08-25T08:00:00Z", type: "CLOCK_OUT" },
+      performedBy: "s",
+      note: "退勤の打刻漏れ",
+      createdAt: NOW.toISOString(),
+    });
+    expect(a.before).toBeUndefined();
+    expect(p).toMatchObject({ source: "MANUAL", corrected: false, note: "退勤の打刻漏れ", createdAt: NOW.toISOString() });
+  });
+
+  it("手動追加: サーバー時刻(createdAt)と指定時刻(occurredAt)は別物。businessDate は拠点TZで算出される", async () => {
+    const { yoga, manualPunches } = makeYoga();
+    await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "W1", type: "CLOCK_IN", occurredAt: "2026-08-20T15:30:00Z", note: "過去分の追加" },
+    });
+    expect(manualPunches[0]!.punch.occurredAt).toBe("2026-08-20T15:30:00Z");
+    expect(manualPunches[0]!.punch.createdAt).toBe(NOW.toISOString());
+    expect(manualPunches[0]!.punch.businessDate).toBe("2026-08-21"); // 00:30 JST
+    expect(manualPunches[0]!.punch.timeZone).toBe("Asia/Tokyo");
+  });
+
+  it("手動追加: トランザクション失敗時はエラーを返し何も書かれない", async () => {
+    const { yoga, manualPunches } = makeYoga({ failTransaction: true });
+    const r = await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "W1", type: "CLOCK_IN", occurredAt: "2026-08-25T00:00:00Z", note: "x" },
+    });
+    expect(r.errors).toBeDefined();
+    expect(r.data).toBeNull();
+    expect(manualPunches).toHaveLength(0);
+  });
+
+  it("手動追加: 空白だけの note・不正な occurredAt は BAD_USER_INPUT で何も書かない", async () => {
+    const { yoga, manualPunches } = makeYoga();
+    const blankNote = await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "W1", type: "CLOCK_IN", occurredAt: "2026-08-25T00:00:00Z", note: "   " },
+    });
+    const badDate = await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "W1", type: "CLOCK_IN", occurredAt: "yesterday", note: "x" },
+    });
+    expect(blankNote.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
+    expect(badDate.errors?.[0]?.extensions?.code).toBe("BAD_USER_INPUT");
+    expect(manualPunches).toHaveLength(0);
+  });
+
+  it("手動追加: 所属拠点が見つからないワーカーは NOT_FOUND で何も書かない", async () => {
+    const { yoga, manualPunches } = makeYoga({ locations: [] });
+    const r = await call(yoga, "cognito", CREATE_MANUAL_PUNCH, {
+      input: { workerId: "W1", type: "CLOCK_IN", occurredAt: "2026-08-25T00:00:00Z", note: "x" },
+    });
+    expect(r.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+    expect(manualPunches).toHaveLength(0);
   });
 });

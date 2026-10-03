@@ -101,6 +101,52 @@ describe("aggregateWorkedPeriods", () => {
     expect(periods[1]!.durationMs).toBe(4 * 60 * 60 * 1000);
   });
 
+  it("締め時刻つき拠点の夜勤: 暦日をまたいでも両端が同じ businessDate なら1日に計上される", () => {
+    // cutoffHour=5 の拠点: 23:00 JST 出勤 → 翌 02:00 JST 退勤、どちらも businessDate は 08-25
+    const periods = aggregateWorkedPeriods([
+      punch({ type: PunchType.CLOCK_IN, occurredAt: "2026-08-25T14:00:00Z", businessDate: "2026-08-25" }),
+      punch({ type: PunchType.CLOCK_OUT, occurredAt: "2026-08-25T17:00:00Z", businessDate: "2026-08-25" }),
+    ]);
+    expect(periods).toHaveLength(1);
+    expect(periods[0]).toMatchObject({ businessDate: "2026-08-25", durationMs: 3 * 3600_000 });
+  });
+
+  it("夏時間切り替えをまたぐ夜勤（Sydney, 2026-10-04 02:00→03:00）も実経過時間で計算する", () => {
+    // 22:00 AEST(=12:00Z) 出勤 → 06:00 AEDT(=19:00Z) 退勤。壁時計では8時間だが実経過は7時間。
+    const periods = aggregateWorkedPeriods([
+      punch({ type: PunchType.CLOCK_IN, occurredAt: "2026-10-03T12:00:00Z", businessDate: "2026-10-03", timeZone: "Australia/Sydney" }),
+      punch({ type: PunchType.CLOCK_OUT, occurredAt: "2026-10-03T19:00:00Z", businessDate: "2026-10-04", timeZone: "Australia/Sydney" }),
+    ]);
+    expect(periods).toHaveLength(1);
+    expect(periods[0]).toMatchObject({ businessDate: "2026-10-03", durationMs: 7 * 3600_000 });
+  });
+
+  it("連続した CLOCK_OUT: 2つ目は対応する出勤が無いので無視する（二重計上しない）", () => {
+    const periods = aggregateWorkedPeriods([
+      punch({ type: PunchType.CLOCK_IN, occurredAt: "2026-08-25T00:00:00Z", businessDate: "2026-08-25" }),
+      punch({ type: PunchType.CLOCK_OUT, occurredAt: "2026-08-25T04:00:00Z", businessDate: "2026-08-25" }),
+      punch({ type: PunchType.CLOCK_OUT, occurredAt: "2026-08-25T05:00:00Z", businessDate: "2026-08-25" }),
+    ]);
+    expect(periods).toHaveLength(1);
+    expect(periods[0]!.durationMs).toBe(4 * 3600_000);
+  });
+
+  it("同一時刻の出勤・退勤は 0 分の期間（負にならない）", () => {
+    const periods = aggregateWorkedPeriods([
+      punch({ type: PunchType.CLOCK_IN, occurredAt: "2026-08-25T00:00:00Z", businessDate: "2026-08-25" }),
+      punch({ type: PunchType.CLOCK_OUT, occurredAt: "2026-08-25T00:00:00Z", businessDate: "2026-08-25" }),
+    ]);
+    expect(periods[0]!.durationMs).toBe(0);
+  });
+
+  it("入力配列を変更しない", () => {
+    const input = Object.freeze([
+      Object.freeze(punch({ type: PunchType.CLOCK_IN, occurredAt: "2026-08-25T00:00:00Z", businessDate: "2026-08-25" })),
+      Object.freeze(punch({ type: PunchType.CLOCK_OUT, occurredAt: "2026-08-25T01:00:00Z", businessDate: "2026-08-25" })),
+    ]);
+    expect(() => aggregateWorkedPeriods(input)).not.toThrow();
+  });
+
   it("異常系: 対応する CLOCK_IN の無い CLOCK_OUT（期間の開始前から出勤）は無視する", () => {
     const periods = aggregateWorkedPeriods([
       punch({ type: PunchType.CLOCK_OUT, occurredAt: "2026-08-25T00:00:00Z", businessDate: "2026-08-25" }),
@@ -131,6 +177,34 @@ describe("summarizeByBusinessDate / totalWorkedMs", () => {
   it("空配列は空配列", () => {
     expect(summarizeByBusinessDate([])).toEqual([]);
     expect(totalWorkedMs([])).toBe(0);
+  });
+
+  it("未退勤だけの日も一覧には残り、日別合計は 0", () => {
+    const summary = summarizeByBusinessDate([
+      { businessDate: "2026-08-25", clockInAt: "a", clockOutAt: null, durationMs: null },
+    ]);
+    expect(summary).toEqual([
+      {
+        businessDate: "2026-08-25",
+        totalMs: 0,
+        periods: [{ businessDate: "2026-08-25", clockInAt: "a", clockOutAt: null, durationMs: null }],
+      },
+    ]);
+  });
+
+  it("日別合計の総和と期間合計が一致する（1か月分の勤務）", () => {
+    const events: PunchEvent[] = [];
+    for (let day = 1; day <= 31; day++) {
+      const d = String(day).padStart(2, "0");
+      const date = `2026-08-${d}`;
+      events.push(punch({ type: PunchType.CLOCK_IN, occurredAt: `${date}T00:00:00Z`, businessDate: date }));
+      events.push(punch({ type: PunchType.CLOCK_OUT, occurredAt: `${date}T08:00:00Z`, businessDate: date }));
+    }
+    const periods = aggregateWorkedPeriods(events);
+    const summary = summarizeByBusinessDate(periods);
+    expect(summary).toHaveLength(31);
+    expect(summary.reduce((sum, s) => sum + s.totalMs, 0)).toBe(totalWorkedMs(periods));
+    expect(totalWorkedMs(periods)).toBe(31 * 8 * 3600_000);
   });
 });
 

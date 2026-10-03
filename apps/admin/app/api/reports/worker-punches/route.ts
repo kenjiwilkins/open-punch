@@ -1,18 +1,27 @@
 import { aggregateWorkedPeriods } from "@open-punch/core";
 import { requireEmployee } from "../../../../src/lib/auth/guard";
+import { toCsv } from "../../../../src/lib/csv";
 import { formatDurationHM, formatTimeInZone } from "../../../../src/lib/format";
 import { fetchWorkerPunches } from "../../../../src/lib/graphql-client";
 
 // 期間指定の個人別勤怠 CSV エクスポート（#21）。認可・集計ロジックは
 // GraphQL resolver / @open-punch/core の純関数と同じものを使う。
 
-function csvEscape(v: string): string {
-  return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// ULID など。Content-Disposition のファイル名に入るため、記号・引用符・改行は許可しない。
+const ID_RE = /^[A-Za-z0-9_-]+$/;
+
+function isValidTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-function toCsv(rows: string[][]): string {
-  // Excel（日本語ロケール）で文字化けしないよう UTF-8 BOM を先頭に付ける。
-  return `﻿${rows.map((r) => r.map(csvEscape).join(",")).join("\r\n")}`;
+function badRequest(message: string): Response {
+  return new Response(message, { status: 400 });
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -24,8 +33,13 @@ export async function GET(request: Request): Promise<Response> {
   const to = url.searchParams.get("to");
   const timeZone = url.searchParams.get("timeZone") ?? "UTC";
   if (!workerId || !from || !to) {
-    return new Response("workerId, from, to は必須です", { status: 400 });
+    return badRequest("workerId, from, to は必須です");
   }
+  if (!ID_RE.test(workerId)) return badRequest("workerId の形式が不正です");
+  if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
+    return badRequest("from, to は YYYY-MM-DD 形式で指定してください");
+  }
+  if (!isValidTimeZone(timeZone)) return badRequest("timeZone が不正です");
 
   const raw = await fetchWorkerPunches(workerId, from, to);
   const punchesAsc = [...raw].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
